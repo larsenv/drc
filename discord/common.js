@@ -9,7 +9,7 @@ const { MessageMentions: { CHANNELS_PATTERN } } = require('discord.js');
 
 const senderNickFromMessage = require('./lib/senderNickFromMessage');
 const { serveMessages } = require('./lib/serveMessages');
-const { isHTTPRunning } = require('../lib/isXRunning');
+const { isHTTPRunning, isLogMgrRunning } = require('../lib/isXRunning');
 const { attachSentimentToMessages, averageSentiments, transformAveragesForDigestHTTP, roundSentimentScoreOnMessages } = require('../lib/sentiments');
 
 function createArgObjOnContext (context, data, subaction, noNetworkFirstArg = false) {
@@ -182,6 +182,7 @@ module.exports = {
   ...require('./lib/strings'),
   senderNickFromMessage,
   isHTTPRunning,
+  isLogMgrRunning,
 
   dynRequireFrom,
   createArgObjOnContext,

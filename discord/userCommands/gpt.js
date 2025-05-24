@@ -73,16 +73,22 @@ async function f (context, ...a) {
   return 'ERROR: ' + error;
 }
 
-f.__drcHelp = () => ({
-  title: 'An interface to OpenAI\'s text completion engine ("GPT" et. al).',
-  usage: '<options> [prompt]',
-  options: [
-    ['--model', 'Change model', true],
-    ['--maxTokens', 'Set max tokens', true],
-    ['--temperature', 'Set temperature', true],
-    ['--listModels', 'List available OpenAI models']
-  ],
-  notes: 'Run `!config get openai` to see defaults.'
-});
+f.__drcHelp = () => {
+  // Get the configured command prefix character
+  const config = require('config');
+  const cmdPrefix = config.app.allowedSpeakersCommandPrefixCharacter || '!';
+
+  return {
+    title: 'An interface to OpenAI\'s text completion engine ("GPT" et. al).',
+    usage: '<options> [prompt]',
+    options: [
+      ['--model', 'Change model', true],
+      ['--maxTokens', 'Set max tokens', true],
+      ['--temperature', 'Set temperature', true],
+      ['--listModels', 'List available OpenAI models']
+    ],
+    notes: `Run \`${cmdPrefix}config get openai\` to see defaults.`
+  };
+};
 
 module.exports = f;

@@ -20,7 +20,7 @@ async function plotNickMsgsOverTimeUserCommand (context) {
     return `Can't determine network from "${network}"`;
   }
 
-  const dispName = context.options.nick || context.options.ident || context.options.hostname;
+  const dispName = context.options.nick || context.options.ident || context.options.hostname || '%';
   let lastFirstDiffDays, dateFirstSeen;
   let dateLastSeen = new Date();
 
@@ -76,6 +76,9 @@ async function plotNickMsgsOverTimeUserCommand (context) {
 
   const outPath = path.join(runningInContainer() ? '/http/static' : config.http.staticDir, outFname);
   console.log('plotNick outPath?', outPath);
+  // Use line chart when only channel is specified (no specific nick)
+  const isChannelOnlyMode = context.options.channel && !(context.options.nick || context.options.ident || context.options.hostname);
+
   const { data: { error, data } } = await plotMpmData(null, dataForPlot, {
     chatLinesColor: 'web-blue',
     ...context.options,
@@ -83,7 +86,8 @@ async function plotNickMsgsOverTimeUserCommand (context) {
     timeUnit: 'days',
     neverLogScale: !!(context.options.neverLogScale ?? true),
     outPath,
-    asOfDate: context.options.sinceLastSeen ?? context.options.fromLastSeen ? dateLastSeen : null
+    asOfDate: context.options.sinceLastSeen ?? context.options.fromLastSeen ? dateLastSeen : null,
+    plotStyle: isChannelOnlyMode ? 'lines' : 'filledcurve'
   });
 
   if (error) {
@@ -153,5 +157,22 @@ function plotNickMsgsOverTimeUserCommandQueueManager (context) {
 
   return `Queued plot job behind ${jobQueue.length - 1} others`;
 }
+
+plotNickMsgsOverTimeUserCommandQueueManager.__drcHelp = () => {
+  return {
+    title: 'Plot message activity over time',
+    usage: '<options>',
+    notes: 'Generate graphs showing message activity over time. Run without options to see the current job queue.',
+    options: [
+      ['--nick', 'Nickname to plot messages for', true],
+      ['--ident', 'User ident to plot messages for', true],
+      ['--hostname', 'Hostname to plot messages for', true],
+      ['--channel', 'Channel to search in', true],
+      ['--maxDays', 'Maximum number of days to include in the plot', true],
+      ['--sinceLastSeen, --fromLastSeen', 'Plot messages since the user was last seen', false],
+      ['--neverLogScale', 'Disable log scale on the y-axis', false]
+    ]
+  };
+};
 
 module.exports = plotNickMsgsOverTimeUserCommandQueueManager;

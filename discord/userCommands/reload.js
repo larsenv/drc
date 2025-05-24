@@ -26,10 +26,12 @@ function reload (context, ...a) {
   })));
 }
 
-reload.__drcHelp = () => ({
-  title: 'Reload user commands and IRC message handlers',
-  usage: '',
-  notes: 'Refreshes all command handlers and IRC message handlers. Useful after making code changes.'
-});
+reload.__drcHelp = () => {
+  return {
+    title: 'Reload user commands and IRC message handlers',
+    usage: '',
+    notes: 'Refreshes all command handlers and IRC message handlers. Useful after making code changes.'
+  };
+};
 
 module.exports = reload;

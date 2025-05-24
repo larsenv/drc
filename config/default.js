@@ -24,7 +24,8 @@ const SECRET_KEYS = [
   'ipinfo.token',
   'openai.secretKey',
   'alpaca.apiKey',
-  'anthropic.secretKey'
+  'anthropic.secretKey',
+  'openrouter.apiKey'
 ];
 
 function replace (obj, keys, replacement) {
@@ -71,6 +72,8 @@ const _config = {
       // options are: html, json, jsonl
       localQueryOutputFormat: 'html'
     },
+    // Default list of daemon containers for the liveLogs --all option
+    liveLogsDaemons: ['discord', 'http', 'irc', 'prometheus'],
     avatarGenerator: 'robohash',
     allowedSpeakers: [],
     allowedSpeakersRoleId: null,
@@ -245,15 +248,31 @@ const _config = {
 
   anthropic: {
     secretKey: null,
-    model: 'claude-3-7-sonnet-20250219',
+    model: 'claude-opus-4-20250514',
+    summaryModel: 'claude-3-5-haiku-latest',
     temperature: 0.7,
     maxTokens: 4000,
     system: 'You are Claude, an AI assistant created by Anthropic to be helpful, harmless, and honest.',
     viaHTML: 'the <a href="https://docs.anthropic.com/claude/docs/introduction-to-claude" target="_blank">Anthropic Claude API</a>'
   },
 
+  openrouter: {
+    apiKey: null,
+    baseUrl: 'https://openrouter.ai/api/v1',
+    temperature: 0.7,
+    maxTokens: 4000,
+    defaultModels: [
+      'google/gemini-2.5-flash-preview',
+      'deepseek/deepseek-chat-v3-0324:free',
+      'qwen/qwen3-235b-a22b:free',
+      'anthropic/claude-sonnet-4',
+    ],
+    viaHTML: 'the <a href="https://openrouter.ai/docs" target="_blank">OpenRouter API</a>'
+  },
+
   genai: {
-    emojiReactionSystemPrompt: 'You are a helpful, harmless, and honest assistant to a user of an IRC network. They want to help another user with a question but do not know the answer or need clairifying information, so are asking you. Provide as much detail & references as possible to enable them to help the user. Here is the question: '
+    emojiReactionSystemPrompt: 'You are a helpful, harmless, and honest assistant to a user of an IRC network. They want to help another user with a question but do not know the answer or need clairifying information, so are asking you. Provide as much detail & references as possible to enable them to help the user. Here is the question: ',
+    summarySystemPrompt: 'These messages represent the recent discussion in a single channel on an IRC network. Succinctly summarize this discussion in three sentences, no more than five sentences. Absolutely, under NO circumstances, should you include any personally-identifiable information in the summary (which includes nicknames or hostnames). Do not embelish or add editorial, simply summarize. Do not preface your response with "This discussion...", "Here is a succinct..." or any other platitudes. Your word budget is low, use all of them to good effect. To re-iterate: do not include any personally-identifiable information in the summary, under any circumstances!! Here is the discussion: '
   },
 
   prometheus: {

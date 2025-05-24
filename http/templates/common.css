@@ -17,6 +17,7 @@
   
   /* Accent colors */
   --accent-cyan: #00ffe1;
+  --accent-cyan-light: #d1fffa;
   --accent-blue: #016fb9;
   --accent-purple: #993399;
   --accent-pink: #ff0055;
@@ -110,6 +111,12 @@ h3::after {
   background: var(--gradient-glow);
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-neon);
+}
+
+h4 {
+  color: var(--accent-cyan);
+  font-weight: 400;
+  margin-bottom: 0.5em;
 }
 
 pre, code, .mono {
@@ -293,10 +300,9 @@ button:hover::after {
 }
 
 .container {
-  width: 90%;
-  max-width: 1200px;
   margin: 0 auto;
   padding: 2em 1em;
+  max-width: 1200px;
 }
 
 .card {
@@ -351,10 +357,23 @@ button:hover::after {
 .footer {
   margin-top: 3em;
   padding: 1em;
-  font-size: 0.85em;
+  font-size: 1em;
   color: var(--text-secondary);
   border-top: 1px solid var(--bg-tertiary);
   text-align: center;
+}
+    
+.footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 25%;
+  right: 25%;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    var(--accent-blue) 50%, 
+    transparent 100%);
 }
 
 /* Responsive adjustments */

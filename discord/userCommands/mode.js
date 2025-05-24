@@ -42,10 +42,14 @@ async function f (context) {
 }
 
 f.__drcHelp = () => {
+  // Get the configured command prefix character
+  const config = require('config');
+  const cmdPrefix = config.app.allowedSpeakersCommandPrefixCharacter || '!';
+
   return {
     title: 'Query or modify user or channel modes',
     usage: 'network channelOrNick [mode]',
-    notes: 'When setting a mode, the `mode` argument must be quoted when removing a mode, e.g. `!mode libera #testchannel "-s"`.'
+    notes: `When setting a mode, the \`mode\` argument must be quoted when removing a mode, e.g. \`${cmdPrefix}mode libera #testchannel "-s"\`.`
   };
 };
 

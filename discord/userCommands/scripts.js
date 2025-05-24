@@ -1,6 +1,5 @@
 'use strict';
 
-const os = require('os');
 const vm = require('../lib/vm');
 const config = require('config');
 const { PREFIX, scopedRedisClient } = require('../../util');
@@ -86,7 +85,6 @@ let RunQueueSvcHandle;
 
 async function _run (scriptName, runId, context, runStr, isScheduled) {
   try {
-    console.debug(`_run> ${scriptName}`, BadCompiles[scriptName]);
     if (BadCompiles[scriptName] >= 2 && !Blocklist.has(scriptName)) {
       console.error(`Blocklisting ${scriptName}: ${BadCompiles[scriptName]}`, Blocklist);
       // should be a big red MessageEmbed
@@ -160,7 +158,6 @@ async function _runQServicer () {
     RunQueueSvcHandle = null;
     if (RunQueue.length) {
       if (RunQueue.length > QHighWatermark) {
-        console.debug(`New script RunQueue high watermark: ${RunQueue.length} -- ${os.loadavg()}`);
         QHighWatermark = RunQueue.length;
         userScriptsQHWMGauge.set(QHighWatermark);
         clearTimeout(QHighWatermarkClearHandle);
@@ -600,12 +597,14 @@ async function f (context, ...a) {
   return listSnippets(context, ...a);
 }
 
-f.__drcHelp = () => ({
-  title: 'User Scripts',
-  notes: 'Scripts are run for **every IPC message** so be sure that they run quickly and quietly.',
-  usage: 'subcommand [...]',
-  subcommands: Object.keys(subCommands).reduce((a, x) => ({ [x]: { text: helpText?.[x] ?? '_No help defined!_' }, ...a }), {})
-});
+f.__drcHelp = () => {
+  return {
+    title: 'User Scripts',
+    notes: 'Scripts are run for **every IPC message** so be sure that they run quickly and quietly.',
+    usage: 'subcommand [...]',
+    subcommands: Object.keys(subCommands).reduce((a, x) => ({ [x]: { text: helpText?.[x] ?? '_No help defined!_' }, ...a }), {})
+  };
+};
 
 f.bindContextForCronRuns = function (context) {
   CronContext = context;

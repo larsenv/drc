@@ -17,9 +17,16 @@ const { expiryFromOptions } = require('./lib/expiry');
 const { requestCounter, notFoundCounter, responseCounter } = require('./http/promMetrics');
 const multiavatar = require('@multiavatar/multiavatar');
 const { execSync } = require('child_process');
+const { startLogStream } = require('./http/liveLogsManager');
 
 const app = require('fastify')({
   logger: true
+});
+
+// Add WebSocket support
+const fastifyWebsocket = require('fastify-websocket');
+app.register(fastifyWebsocket, {
+  options: { maxPayload: 1048576 } // 1MB
 });
 
 require('./logger')('http');
@@ -196,6 +203,10 @@ redisListener.subscribe(PREFIX, (err) => {
 
   app.get('/templates/common.css', async (req, res) => {
     return res.type('text/css').send(await fs.promises.readFile(path.join(__dirname, 'http', 'templates', 'common.css')));
+  });
+
+  app.get('/templates/ansiToHtml.js', async (req, res) => {
+    return res.type('text/javascript').send(await fs.promises.readFile(path.join(__dirname, 'http', 'templates', 'ansiToHtml.js')));
   });
 
   app.get('/static/:name', async (req, res) => {
@@ -386,6 +397,145 @@ redisListener.subscribe(PREFIX, (err) => {
     }
   });
 
+  // WebSocket endpoint for live logs - register directly instead of using a plugin
+  app.get('/ws/liveLogs/:streamId', { websocket: true }, (connection, req) => {
+    const { streamId } = req.params;
+    console.log(`WebSocket connection established for stream: ${streamId}`);
+
+    // Special handling for debug test
+    if (streamId === 'debug-test') {
+      console.log('Debug test WebSocket connection established');
+
+      // Send test data
+      connection.socket.send(JSON.stringify({
+        type: 'info',
+        message: 'This is a debug test connection - WebSocket is working!',
+        timestamp: Date.now()
+      }));
+
+      // Keep connection open for testing
+      const interval = setInterval(() => {
+        if (connection.socket.readyState === 1) {
+          connection.socket.send(JSON.stringify({
+            type: 'log',
+            message: `Test log message at ${new Date().toISOString()}`,
+            timestamp: Date.now()
+          }));
+        } else {
+          clearInterval(interval);
+        }
+      }, 5000);
+
+      // Clean up on close
+      connection.socket.on('close', () => {
+        clearInterval(interval);
+        console.log('Debug test WebSocket connection closed');
+      });
+
+      return;
+    }
+
+    // Find the active log stream in Redis for real streams
+    scopedRedisClient(async (client, prefix) => {
+      console.log(`Checking Redis for stream info: ${prefix}:liveLogs:${streamId}`);
+      const streamInfo = await client.get(`${prefix}:liveLogs:${streamId}`);
+
+      if (!streamInfo) {
+        console.log(`No stream found for ID: ${streamId}`);
+        connection.socket.send(JSON.stringify({
+          type: 'error',
+          message: 'Stream not found or expired'
+        }));
+        connection.socket.close();
+        return;
+      }
+
+      try {
+        const streamData = JSON.parse(streamInfo);
+
+        // Check expiry
+        if (Date.now() > streamData.expiresAt) {
+          console.log(`Stream expired: ${streamId}`);
+          connection.socket.send(JSON.stringify({
+            type: 'error',
+            message: 'Stream has expired'
+          }));
+          connection.socket.close();
+
+          // Clean up Redis
+          client.del(`${prefix}:liveLogs:${streamId}`);
+          return;
+        }
+
+        // Send initial connection confirmation
+        connection.socket.send(JSON.stringify({
+          type: 'connected',
+          daemon: streamData.daemon,
+          expiresAt: streamData.expiresAt
+        }));
+
+        // Set up a subscription for this stream ID
+        const streamSubscriber = new Redis(config.app.redis);
+        const streamChannel = `${prefix}:liveLogs:stream:${streamId}`;
+
+        // Subscribe to the Redis channel where log messages will be published
+        streamSubscriber.subscribe(streamChannel, (err) => {
+          if (err) {
+            console.error(`Error subscribing to ${streamChannel}:`, err);
+            connection.socket.close();
+            return;
+          }
+
+          console.log(`Subscribed to ${streamChannel}`);
+        });
+
+        // Forward messages from Redis to the WebSocket client
+        streamSubscriber.on('message', (_channel, message) => {
+          if (connection.socket.readyState === 1) { // OPEN
+            connection.socket.send(message);
+          }
+        });
+
+        // Handle connection close
+        connection.socket.on('close', () => {
+          console.log(`WebSocket connection closed for stream: ${streamId}`);
+          streamSubscriber.unsubscribe(streamChannel);
+          streamSubscriber.quit();
+        });
+
+        // Publish presence information so the log manager daemon knows a client is connected
+        client.publish(`${prefix}:liveLogs:presence:${streamId}`, JSON.stringify({
+          type: 'clientConnected',
+          timestamp: Date.now()
+        }));
+
+        // Request the log stream from the external logmgr daemon if not already running
+        // Note: The external daemon will handle starting and managing the stream
+        console.log(`Ensuring log stream is active for ${streamId}...`);
+        startLogStream(streamData)
+          .then(success => {
+            if (success) {
+              console.log(`Stream ${streamId} is active`);
+            } else {
+              console.warn(`Stream ${streamId} setup reported issues but will try to continue`);
+            }
+          })
+          // This catch block should never be hit with the updated startLogStream implementation,
+          // but we'll keep it as a safeguard
+          .catch(error => {
+            console.error(`Unexpected error with stream ${streamId}:`, error);
+          });
+      } catch (error) {
+        console.error(`Error handling WebSocket for stream ${streamId}:`, error);
+        connection.socket.send(JSON.stringify({
+          type: 'error',
+          message: 'Internal server error'
+        }));
+        connection.socket.close();
+      }
+    });
+  });
+
   app.get('/', async (req, res) => {
     res.redirect(config.http.rootRedirectUrl);
   });
@@ -441,6 +591,35 @@ redisListener.subscribe(PREFIX, (err) => {
             if (!parsed.data) {
               handler.reject(new Error('no data'));
               return;
+            }
+
+            // Debug for AI responses
+            if (handler.parsed?.data?.renderType === 'ai' && parsed.data?.responses) {
+              console.log(`HTTP received data with ${parsed.data.responses.length} responses for AI template`);
+              console.log(`Models in HTTP payload: ${parsed.data.responses.map(r => r.model).join(', ')}`);
+            }
+
+            // Handle liveLogs initialization asynchronously
+            if (handler.parsed?.data?.renderType === 'liveLogs' && parsed.data?.streamId) {
+              console.log(`Received liveLogs request for: ${parsed.data.daemon}, streamId: ${parsed.data.streamId}`);
+
+              // Store the stream info in Redis so both the HTTP server and logmgr daemon can access it
+              scopedRedisClient(async (client, prefix) => {
+                // Store the stream info with expiry
+                const streamKey = `${prefix}:liveLogs:${parsed.data.streamId}`;
+                await client.set(streamKey, JSON.stringify(parsed.data));
+
+                // Set expiry on the key
+                const ttlMs = parsed.data.expiresAt - Date.now();
+                if (ttlMs > 0) {
+                  await client.pexpire(streamKey, ttlMs);
+                }
+
+                console.log(`Stream info stored in Redis with key ${streamKey}, TTL: ${Math.floor(ttlMs / 1000)}s`);
+              });
+
+              // We don't start the stream directly - it will be started when a WebSocket client connects
+              // This avoids creating unused streams when nobody visits the page
             }
 
             if (PutAllowedIds[subSubType] === true) {

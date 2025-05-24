@@ -103,13 +103,28 @@ async function servePage (context, data, renderType, callback, allowPut = false)
     throw new Error('not enough args');
   }
 
+  // Add debugging for AI template
+  if (renderType === 'ai' && data.responses) {
+    console.log(`servePage for AI template: ${data.responses.length} responses`);
+    console.log(`Response models: ${data.responses.map(r => r.model).join(', ')}`);
+  }
+
   const name = nanoid();
 
   context.registerOneTimeHandler('http:get-req:' + name, name, async () => {
+    // Log data for debugging AI responses
+    if (renderType === 'ai' && data.responses) {
+      console.log(`Publishing HTTP data with ${data.responses.length} responses to template`);
+      console.log(`Response models: ${data.responses.map(r => r.model).join(', ')}`);
+    }
+
     await scopedRedisClient(async (r) => {
+      // Create a deep copy of the data to avoid any mutation issues
+      const dataCopy = JSON.parse(JSON.stringify(data));
+
       await r.publish(PREFIX, JSON.stringify({
         type: 'http:get-res:' + name,
-        data
+        data: dataCopy
       }));
 
       if (callback) {

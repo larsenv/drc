@@ -34,7 +34,15 @@ async function f (context, ...a) {
 }
 
 f.__drcHelp = () => {
-  return '!msg network targetId message...';
+  // Get the configured command prefix character
+  const config = require('config');
+  const cmdPrefix = config.app.allowedSpeakersCommandPrefixCharacter || '!';
+
+  return {
+    title: 'Send a message to a user or channel on IRC',
+    usage: 'network targetId message...',
+    notes: `Example: \`${cmdPrefix}msg libera #channel Hello world\` or \`${cmdPrefix}msg libera nickname Hello there\``
+  };
 };
 
 module.exports = f;

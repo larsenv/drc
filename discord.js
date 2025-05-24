@@ -435,7 +435,12 @@ client.once('ready', async () => {
         // this should be removed ASAP in favor of scopedRedisClient,
         // but need to find all uses of it first...
         const publish = async (publishObj) => redis.publish(PREFIX, JSON.stringify(publishObj));
-        const argObj = yargs(args).help(false).exitProcess(false).argv;
+        // Configure yargs to properly handle array args
+        const argObj = yargs(args)
+          .help(false)
+          .exitProcess(false)
+          .array(['model']) // Add options that should be treated as arrays here
+          .argv;
         console.log('Command args:', args, ' parsed into ', argObj);
 
         const createGuildChannel = async (channelName, channelOpts) =>
@@ -1011,6 +1016,11 @@ client.once('ready', async () => {
   const userScriptsSubClient = new Redis(config.redis.url);
   await userScriptsSubClient.psubscribe('*');
   userScriptsSubClient.on('pmessage', async (_pattern, channel, msgJson) => {
+    // Skip attempting to parse Redis keyspace notifications as JSON
+    if (channel.includes('__keyspace@') || channel.includes('__keyevent@')) {
+      return;
+    }
+
     let msg = {
       type: channel,
       data: msgJson
@@ -1021,6 +1031,7 @@ client.once('ready', async () => {
     } catch (err) {
       console.error(`Failed to parse message data as json for user script channel=${channel}, msgJson:\n${msgJson}`);
       console.error(err);
+      return; // Skip further processing on parse error
     }
 
     await userCommands('scripts').runScriptsForEvent(mainContext, msg.type, msg.data, channel);

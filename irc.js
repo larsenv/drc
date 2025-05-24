@@ -141,7 +141,7 @@ async function main () {
         console.log('Reloaded ipcMessage and genEvHandler');
       } else if (srType === 'debug_on') {
         logger.enableLevel('debug');
-        console.debug('Debug logging ENABLED via C2 message');
+        console.log('Debug logging ENABLED via C2 message');
       } else if (srType === 'debug_off') {
         logger.disableLevel('debug');
         console.log('Debug logging DISABLED via C2 message');
@@ -202,6 +202,91 @@ async function main () {
     connectedIRC.bots[host] = await connectIRCClient(spec);
 
     // assumes the parent path already exists!
+    // Global buffer for failed SQLite insertions (shared across hosts)
+    if (!global.sqliteBuffer) {
+      global.sqliteBuffer = {};
+    }
+    const BUFFER_RETRY_INTERVAL_MS = 5000; // 5 seconds
+
+    // Initialize a retrier for each SQLite file
+    const initRetryBuffer = (sqliteFilePath) => {
+      if (!global.sqliteBuffer[sqliteFilePath]) {
+        console.warn(`Initializing SQLite buffer for ${sqliteFilePath}`);
+        global.sqliteBuffer[sqliteFilePath] = {
+          entries: [],
+          retryIntervalId: setInterval(() => {
+            processSqliteBuffer(sqliteFilePath);
+          }, BUFFER_RETRY_INTERVAL_MS)
+        };
+      }
+      return global.sqliteBuffer[sqliteFilePath];
+    };
+
+    // Process buffered entries for a specific SQLite file
+    const processSqliteBuffer = async (sqliteFilePath) => {
+      const buffer = global.sqliteBuffer[sqliteFilePath];
+      if (!buffer || buffer.entries.length === 0) {
+        return;
+      }
+
+      // Create a copy of the buffer entries and clear the buffer
+      const entriesToProcess = [...buffer.entries];
+      buffer.entries = [];
+
+      let db;
+      try {
+        db = new sqlite3.Database(sqliteFilePath);
+        const successfulEntries = [];
+        const failedEntries = [];
+
+        // Process each entry
+        for (const entry of entriesToProcess) {
+          try {
+            await new Promise((resolve, reject) => {
+              db.run('INSERT INTO channel VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                entry.parsed.type, entry.parsed.from_server ? 1 : 0, entry.parsed.nick,
+                entry.parsed.ident, entry.parsed.hostname, entry.parsed.target,
+                entry.parsed.message, entry.parsed.__drcNetwork,
+                entry.parsed?.__drcIrcRxTs ?? -1, entry.parsed?.__drcLogTs ?? -1,
+                JSON.stringify(entry.parsed.tags), null, (err) => {
+                  if (err) {
+                    reject(err);
+                  } else {
+                    resolve();
+                  }
+                });
+            });
+            successfulEntries.push(entry);
+          } catch (e) {
+            // If we still get a SQLITE_BUSY error, add back to the failed entries
+            if (e.code === 'SQLITE_BUSY') {
+              failedEntries.push(entry);
+            } else {
+              console.error(`Error reinserting buffered entry: ${e.message}`, e, entry.parsed);
+            }
+          }
+        }
+
+        // Put the failed entries back in the buffer
+        if (failedEntries.length > 0) {
+          buffer.entries.push(...failedEntries);
+          console.log(`Re-buffering ${failedEntries.length} entries for ${sqliteFilePath} (${buffer.entries.length} total in buffer)`);
+        }
+
+        if (successfulEntries.length > 0) {
+          console.log(`Successfully inserted ${successfulEntries.length} buffered entries for ${sqliteFilePath}`);
+        }
+      } catch (e) {
+        // If we can't open the database, re-buffer all entries
+        buffer.entries.push(...entriesToProcess);
+        console.error(`Failed to process buffer for ${sqliteFilePath}:`, e);
+      } finally {
+        if (db) {
+          db.close();
+        }
+      }
+    };
+
     const logDataToSqlite = async (prefixPath, parsed) => {
       const sqliteFilePath = `${prefixPath}.sqlite3`;
       let db;
@@ -245,22 +330,38 @@ async function main () {
         try {
           db = new sqlite3.Database(sqliteFilePath);
         } catch (e) {
-          console.error('uh oh', sqliteFilePath, e);
+          console.error('DB open failed!', sqliteFilePath, e);
           return;
         }
       }
 
-      return new Promise((resolve, reject) => {
-        db.run('INSERT INTO channel VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          parsed.type, parsed.from_server ? 1 : 0, parsed.nick, parsed.ident, parsed.hostname,
-          parsed.target, parsed.message, parsed.__drcNetwork, parsed?.__drcIrcRxTs ?? -1,
-          parsed?.__drcLogTs ?? -1, JSON.stringify(parsed.tags), null, (err) => {
-            if (err) {
-              return reject(err);
-            }
-            db.close(() => resolve(parsed));
-          });
-      });
+      try {
+        const result = await new Promise((resolve, reject) => {
+          db.run('INSERT INTO channel VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            parsed.type, parsed.from_server ? 1 : 0, parsed.nick, parsed.ident, parsed.hostname,
+            parsed.target, parsed.message, parsed.__drcNetwork, parsed?.__drcIrcRxTs ?? -1,
+            parsed?.__drcLogTs ?? -1, JSON.stringify(parsed.tags), null, (err) => {
+              if (err) {
+                return reject(err);
+              }
+              resolve(parsed);
+            });
+        });
+        db.close();
+        return result;
+      } catch (err) {
+        db.close();
+
+        // If database is locked, buffer the entry for later
+        if (err.code === 'SQLITE_BUSY') {
+          const buffer = initRetryBuffer(sqliteFilePath);
+          buffer.entries.push({ prefixPath, parsed });
+          console.warn(`SQLite database locked! Buffered entry for ${sqliteFilePath} (${buffer.entries.length} total in buffer)`);
+          return parsed; // Return parsed to indicate we've handled it (buffered)
+        }
+
+        throw err; // Rethrow any other errors
+      }
     };
 
     const logDataToFile = (fileName, data, { isNotice = false, pathExtra = [], isMessage = false, isEvent = false } = {}) => {
@@ -270,6 +371,7 @@ async function main () {
       fs.stat(chanFileDir, async (err, _stats) => {
         try {
           if (err && err.code === 'ENOENT') {
+            console.log(`Making channel file dir ${chanFileDir}`);
             await fs.promises.mkdir(chanFileDir, { recursive: true });
           }
 
@@ -359,6 +461,8 @@ async function main () {
             }
           }
         }
+
+        console.info(`Channel modifying event '${event}' on ${host} for ${nick} in ${channel} / ${chanSpec?.name}`);
       } catch (e) {
         console.error('adjustChannelUsersOnEvent event handling loop failed: no chanSpec for an event that needs it?');
         console.error({ host, event, data, chanSpec });
@@ -411,6 +515,7 @@ async function main () {
         const num = Number(splitElems[1]);
         if (!Number.isNaN(num)) {
           stats.latency[host] = nowNum - num;
+          console.info(`${host} PONG latency: ${stats.latency[host]}ms`);
 
           if (splitElems[0].indexOf('drc') === 0) {
             pubClient.publish(PREFIX, JSON.stringify({
@@ -497,14 +602,25 @@ async function main () {
   process.on('SIGINT', async () => {
     clearTimeout(heartbeatHandle);
 
-    for (const [hn, client] of Object.entries(connectedIRC.bots)) {
-      console.log(`quitting ${hn}`);
+    // Clean up all SQLite buffer retry intervals
+    if (global.sqliteBuffer) {
+      for (const [sqlitePath, bufferData] of Object.entries(global.sqliteBuffer)) {
+        if (bufferData.retryIntervalId) {
+          clearInterval(bufferData.retryIntervalId);
+          console.log(`Cleared retry interval for ${sqlitePath}`);
+        }
+      }
+    }
+
+    // Disconnect IRC bots
+    for (const [host, hostBotData] of Object.entries(connectedIRC.bots)) {
+      console.log(`quitting ${host}`);
       let res;
       const prom = new Promise((resolve, reject) => { res = resolve; });
-      client.on('close', res);
-      client.quit('Quit.');
+      hostBotData.on('close', res);
+      hostBotData.quit('Quit.');
       await prom;
-      console.log(`closed ${hn}`);
+      console.log(`closed ${host}`);
     }
 
     pubClient.publish(PREFIX, JSON.stringify({ type: 'irc:exit' }));

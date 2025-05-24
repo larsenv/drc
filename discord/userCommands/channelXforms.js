@@ -54,7 +54,7 @@ const subCommands = {
   }
 };
 
-module.exports = async function (context) {
+const channelXforms = async function (context) {
   const [netStub, subCmd] = context.argObj._;
 
   if (netStub === 'reload') {
@@ -64,3 +64,31 @@ module.exports = async function (context) {
   const { network } = matchNetwork(netStub);
   return subCommands[subCommands[subCmd] ? subCmd : 'get'](context, network, ...context.argObj._.slice(2));
 };
+
+channelXforms.__drcHelp = () => {
+  // Get the configured command prefix character
+  const config = require('config');
+  const cmdPrefix = config.app.allowedSpeakersCommandPrefixCharacter || '!';
+
+  return {
+    title: 'Manage channel name transformations between Discord and IRC',
+    usage: '<network> <subcommand> [options]',
+    notes: 'Manage how channel names are transformed between Discord and IRC.',
+    subcommands: {
+      get: {
+        text: `View current transforms, e.g., \`${cmdPrefix}channelXforms libera get\``
+      },
+      set: {
+        text: `Set a transform, e.g., \`${cmdPrefix}channelXforms libera set discord-channel irc-channel\``
+      },
+      remove: {
+        text: `Remove a transform, e.g., \`${cmdPrefix}channelXforms libera remove discord-channel\``
+      },
+      serve: {
+        text: `Generate a web interface to manage transforms, e.g., \`${cmdPrefix}channelXforms libera serve\``
+      }
+    }
+  };
+};
+
+module.exports = channelXforms;

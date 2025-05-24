@@ -103,10 +103,16 @@ function f (context) {
   }
 }
 
-f.__drcHelp = () => ({
-  title: 'This help!',
-  usage: '[command]',
-  notes: 'Use "!help [command]" to get detailed help with "command".'
-});
+f.__drcHelp = () => {
+  // Get the configured command prefix character
+  const config = require('config');
+  const cmdPrefix = config.app.allowedSpeakersCommandPrefixCharacter || '!';
+
+  return {
+    title: 'This help!',
+    usage: '[command]',
+    notes: `Use "${cmdPrefix}help [command]" to get detailed help with "command".`
+  };
+};
 
 module.exports = f;

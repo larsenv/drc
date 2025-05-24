@@ -209,6 +209,42 @@ async function avatars (context) {
   return Commands[command](context);
 }
 
-avatars.__drcHelp = () => `Available subcommands: ${Object.keys(Commands).join(', ')}.`;
+avatars.__drcHelp = () => {
+  // Get the configured command prefix character
+  const config = require('config');
+  const cmdPrefix = config.app.allowedSpeakersCommandPrefixCharacter || '!';
+
+  return {
+    title: 'Manage avatar styles for IRC users',
+    usage: '<subcommand> [options]',
+    notes: 'Control how avatars are generated for IRC users in Discord.',
+    subcommands: {
+      listAllStyles: {
+        text: 'List all available avatar styles'
+      },
+      resetRandomStyles: {
+        text: 'Reset all stored random styles'
+      },
+      getNickRandomStyle: {
+        text: 'Show the random style assigned to a nickname'
+      },
+      getNickURL: {
+        text: 'Get the avatar URL for a nickname'
+      },
+      setNickRandomStyle: {
+        text: `Set a nickname's random style, e.g., \`${cmdPrefix}avatars setNickRandomStyle bottts nickname\``
+      },
+      setStyle: {
+        text: `Set the global avatar style, e.g., \`${cmdPrefix}avatars setStyle bottts\``
+      },
+      exampleOfStyle: {
+        text: `Show an example of a style, e.g., \`${cmdPrefix}avatars exampleOfStyle bottts\``
+      },
+      excludeRandomStyles: {
+        text: 'Exclude styles from random selection'
+      }
+    }
+  };
+};
 
 module.exports = avatars;

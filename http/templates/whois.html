@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WHOIS Results - DiscordRC</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/templates/common.css">
+  <style type="text/css">
+    .response-container {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      margin: 2rem 0;
+    }
+    
+    @media (min-width: 992px) {
+      .response-container {
+        grid-template-columns: 2fr 1fr;
+      }
+    }
+    
+    .whois-card, .meta-card, .aliases-card, .logs-card, .notes-card, .nmap-card {
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-standard);
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+    
+    .whois-card::before, .aliases-card::before, .logs-card::before, .notes-card::before, .nmap-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+    }
+    
+    .whois-card::before {
+      background: var(--gradient-glow);
+    }
+    
+    .aliases-card::before {
+      background: var(--gradient-hot);
+    }
+    
+    .logs-card::before {
+      background: var(--gradient-warm);
+    }
+    
+    .notes-card::before {
+      background: var(--accent-yellow);
+    }
+    
+    .nmap-card::before {
+      background: var(--accent-purple);
+    }
+    
+    .section-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--accent-blue);
+    }
+    
+    .section-header h3 {
+      margin: 0;
+      border-bottom: none;
+    }
+    
+    .section-header::after {
+      display: none;
+    }
+    
+    .whois-content, .aliases-content, .logs-content, .notes-content, .nmap-content {
+      font-family: var(--font-body);
+      padding: 1rem;
+      border-radius: var(--border-radius);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .whois-content {
+      background-color: rgba(0, 255, 225, 0.03);
+    }
+    
+    .aliases-content {
+      background-color: rgba(255, 0, 85, 0.03);
+    }
+    
+    .logs-content {
+      background-color: rgba(255, 187, 0, 0.03);
+    }
+    
+    .notes-content {
+      background-color: rgba(255, 187, 0, 0.05);
+    }
+    
+    .nmap-content {
+      background-color: rgba(153, 51, 153, 0.03);
+      font-family: var(--font-mono);
+      white-space: pre-wrap;
+      font-size: 0.9em;
+    }
+    
+    .param-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.75rem;
+      align-items: start;
+    }
+
+    .params {
+      grid-template-columns: auto 1fr;
+      gap: 0.75rem;
+      align-items: start;
+    }
+    
+    .param-name {
+      text-align: left;
+      color: var(--text-secondary);
+      font-family: var(--font-heading);
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+    }
+    
+    .param-value {
+      font-family: var(--font-mono);
+      color: var(--accent-cyan-light);
+      background-color: var(--bg-tertiary);
+      padding: 0.3rem 0.6rem;
+      border-radius: var(--border-radius);
+      word-break: break-all;
+      text-align: left;
+    }
+    
+    .ip-info {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(0, 255, 225, 0.1);
+    }
+    
+    .channel-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    
+    .channel {
+      background-color: var(--bg-tertiary);
+      color: var(--accent-cyan);
+      padding: 0.25rem 0.6rem;
+      border-radius: var(--border-radius);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+    
+    .nick-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    
+    .nick-item {
+      background-color: var(--bg-tertiary);
+      color: var(--accent-pink);
+      padding: 0.25rem 0.6rem;
+      border-radius: var(--border-radius);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+    
+    .host-list {
+      margin-top: 1rem;
+    }
+    
+    .host-item {
+      color: var(--accent-blue);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      padding: 0.2rem 0;
+    }
+    
+    .note-item {
+      position: relative;
+      padding-left: 1.5rem;
+      margin-bottom: 0.8rem;
+      line-height: 1.4;
+    }
+    
+    .note-item:before {
+      content: '•';
+      color: var(--accent-yellow);
+      position: absolute;
+      left: 0.5rem;
+      top: 0;
+    }
+    
+    .toxic-alert {
+      padding: 1rem;
+      background-color: rgba(255, 0, 85, 0.1);
+      border-left: 3px solid var(--accent-pink);
+      margin: 0 auto 1.5rem auto;
+      max-width: 1200px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    
+    .tech-info {
+      display: flex;
+      align-items: center;
+      font-family: var(--font-mono);
+      margin-top: 1rem;
+      gap: 0.5rem;
+    }
+    
+    .tech-info code {
+      background-color: var(--bg-tertiary);
+      padding: 0.25rem 0.5rem;
+      border-radius: var(--border-radius);
+      color: var(--accent-purple);
+    }
+    
+    .last-seen-item {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 1rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(0, 255, 225, 0.1);
+    }
+    
+    .last-seen-item:last-child {
+      border-bottom: none;
+    }
+    
+    .last-seen-date {
+      font-family: var(--font-mono);
+      color: var(--accent-cyan);
+    }
+    
+    .last-seen-channel {
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+  </style>
+</head>
+<body>
+  {{#kicksCount}}
+  <div class="toxic-alert">
+    <strong>⚠️ Toxic user alert!</strong> <code>{{ nick }}</code> has been kicked from channels <strong>{{ kicksCount }}</strong> times on this network!
+  </div>
+  {{/kicksCount}}
+  <div class="container">
+    <div class="response-container">
+      <div class="main-content">
+        <!-- Main WHOIS Card -->
+        <div class="whois-card">
+          <div class="section-header">
+            <h3>WHOIS <code>{{ nick }}</code> on <code>{{ network }}</code></h3>
+          </div>
+          <div class="whois-content">
+            {{^isFound}}
+            <p>Nickname not found!</p>
+            {{/isFound}}
+            
+            {{#isFound}}
+            <div class="param-grid">
+              {{#whoisData}}
+              <div class="param-name">Nick:</div>
+              <div class="param-value">{{ nick }}</div>
+              
+              <div class="param-name">Ident:</div>
+              <div class="param-value">{{ ident }}</div>
+              
+              <div class="param-name">Hostname:</div>
+              <div class="param-value">{{ hostname }}</div>
+              
+              {{#actual_hostname}}
+              <div class="param-name">Actual Hostname:</div>
+              <div class="param-value">{{ actual_hostname }}</div>
+              {{/actual_hostname}}
+              
+              {{#actual_ip}}
+              <div class="param-name">Actual IP:</div>
+              <div class="param-value">{{ actual_ip }}</div>
+              {{/actual_ip}}
+              
+              {{#realname}}
+              <div class="param-name">Real Name:</div>
+              <div class="param-value">{{ realname }}</div>
+              {{/realname}}
+              
+              {{#server}}
+              <div class="param-name">Server:</div>
+              <div class="param-value">{{ server }}</div>
+              {{/server}}
+              
+              {{#server_info}}
+              <div class="param-name">Server Info:</div>
+              <div class="param-value">{{ server_info }}</div>
+              {{/server_info}}
+              
+              {{#loggedin}}
+              <div class="param-name">Logged In:</div>
+              <div class="param-value">Yes</div>
+              {{/loggedin}}
+              
+              {{#account}}
+              <div class="param-name">Account:</div>
+              <div class="param-value">{{ account }}</div>
+              {{/account}}
+              
+              {{#registered_nick}}
+              <div class="param-name">Registered:</div>
+              <div class="param-value">Yes</div>
+              {{/registered_nick}}
+              
+              {{#secure}}
+              <div class="param-name">Secure:</div>
+              <div class="param-value">Yes</div>
+              {{/secure}}
+              {{/whoisData}}
+              
+              {{#channels.length}}
+              <div class="param-name">Channels:</div>
+              <div class="param-value">
+                <div class="channel-list">
+                  {{#channels}}
+                  <span class="channel">{{ . }}</span>
+                  {{/channels}}
+                </div>
+              </div>
+              {{/channels.length}}
+              
+              {{#firstSeen.length}}
+              <div class="param-name">First Seen:</div>
+              <div class="param-value">
+                <div class="first-seen-info">
+                  <span class="last-seen-date">{{ firstSeen.0.date }}</span> in 
+                  <span class="last-seen-channel">{{ firstSeen.0.channel }}</span>
+                </div>
+              </div>
+              {{/firstSeen.length}}
+            </div>
+            {{/isFound}}
+
+            
+              
+            {{#ipInfo}}
+            <div class="ip-info">
+              <div class="section-header">
+                <h3>IP Information for <code>{{ lookupHost }}</code></h3>
+              </div>
+              <div class="param-grid">
+                {{#ipInfo.city}}
+                <div class="param-name">City:</div>
+                <div class="param-value">{{ ipInfo.city }}</div>
+                {{/ipInfo.city}}
+                
+                {{#ipInfo.region}}
+                <div class="param-name">Region:</div>
+                <div class="param-value">{{ ipInfo.region }}</div>
+                {{/ipInfo.region}}
+                
+                {{#ipInfo.country}}
+                <div class="param-name">Country:</div>
+                <div class="param-value">{{ ipInfo.country }}</div>
+                {{/ipInfo.country}}
+                
+                {{#ipInfo.loc}}
+                <div class="param-name">Location:</div>
+                <div class="param-value">{{ ipInfo.loc }}</div>
+                {{/ipInfo.loc}}
+                
+                {{#ipInfo.org}}
+                <div class="param-name">Organization:</div>
+                <div class="param-value">{{ ipInfo.org }}</div>
+                {{/ipInfo.org}}
+                
+                {{#ipInfo.asn}}
+                <div class="param-name">ASN:</div>
+                <div class="param-value">{{ ipInfo.asn }}</div>
+                {{/ipInfo.asn}}
+                
+                {{#ipInfo.hostname}}
+                <div class="param-name">Hostname:</div>
+                <div class="param-value">{{ ipInfo.hostname }}</div>
+                {{/ipInfo.hostname}}
+              </div>
+            </div>
+            {{/ipInfo}}
+          </div>
+        </div>
+        
+        <!-- Aliases Card (if available) -->
+        {{#showAliases}}
+        <div class="aliases-card">
+          <div class="section-header">
+            <h3>Aliases of <code>{{ nick }}</code> on <code>{{ network }}</code></h3>
+          </div>
+          <div class="aliases-content">
+            {{#identAliases}}
+            <div class="aliases-section">
+              <h4>Known aliases of <code>{{ fullIdent }}</code>:</h4>
+              <div class="nick-list">
+                {{#uniques}}
+                <span class="nick-item">{{ . }}</span>
+                {{/uniques}}
+              </div>
+              {{#lastChanges.length}}
+              <p>Last nick change was <strong>{{ lastChangesFormatted }}</strong> ago.</p>
+              {{/lastChanges.length}}
+            </div>
+            {{/identAliases}}
+            
+            {{#knownHosts.length}}
+            <div class="host-list">
+              <h4>Other known hosts for <code>{{ ident }}</code> ({{ knownHosts.length }}):</h4>
+              {{#knownHosts}}
+              <div class="host-item">{{ . }}</div>
+              {{/knownHosts}}
+            </div>
+            {{/knownHosts.length}}
+            
+            {{#otherIdents.length}}
+            {{#otherIdents}}
+            <div class="aliases-section" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255, 0, 85, 0.1);">
+              <h4>Known aliases of <code>{{ fullIdent }}</code>{{#searchStr}} (from "{{ searchStr }}"){{/searchStr}}:</h4>
+              <div class="nick-list">
+                {{#uniques}}
+                <span class="nick-item">{{ . }}</span>
+                {{/uniques}}
+              </div>
+              {{#lastChanges.length}}
+              <p>Last nick change was <strong>{{ lastChangesFormatted }}</strong> ago.</p>
+              {{/lastChanges.length}}
+            </div>
+            {{/otherIdents}}
+            {{/otherIdents.length}}
+          </div>
+        </div>
+        {{/showAliases}}
+        
+        <!-- Logs Card (if available) -->
+        {{#showLogs}}
+        <div class="logs-card">
+          <div class="section-header">
+            <h3>On <code>{{ network }}</code>, <code>{{ nick }}</code> has...</h3>
+          </div>
+          <div class="logs-content">
+            {{#spokenChannels}}
+            <div class="params">
+              <div class="param-name">Spoken in channels:</div>
+              <div class="param-value">{{ spokenChannels }}</div>
+            </div>
+            <br/>
+            {{/spokenChannels}}
+            
+            {{#nickAliases}}
+            <div class="params">
+              <div class="param-name">Appeared as nicks:</div>
+              <div class="param-value">{{ nickAliases }}</div>
+            </div>
+            <br/>
+            {{/nickAliases}}
+            
+            {{#identAliasesStr}}
+            <div class="params">
+              <div class="param-name">Connected with idents:</div>
+              <div class="param-value">{{ identAliasesStr }}</div>
+            </div>
+            <br/>
+            {{/identAliasesStr}}
+            
+            {{#hostnameAliases}}
+            <div class="params">
+              <div class="param-name">Connected from hostnames:</div>
+              <div class="param-value">{{ hostnameAliases }}</div>
+            </div>
+            <br/>
+            {{/hostnameAliases}}
+          </div>
+        </div>
+        {{/showLogs}}
+        
+        <!-- Last Seen Card (if not found but have last seen data) -->
+        {{#showLastSeen}}
+        <div class="logs-card">
+          <div class="section-header">
+            <h3>Last seen info for <code>{{ nick }}</code> on <code>{{ network }}</code></h3>
+          </div>
+          <div class="logs-content">
+            <div class="last-seen-list">
+              {{#lastSeen}}
+              <div class="last-seen-item">
+                <span class="last-seen-date">{{ date }}</span>
+                <span class="last-seen-channel">in {{ channel }}</span>
+              </div>
+              {{/lastSeen}}
+            </div>
+          </div>
+        </div>
+        {{/showLastSeen}}
+        
+        <!-- Notes Card (if available) -->
+        {{#showNotes}}
+        <div class="notes-card">
+          <div class="section-header">
+            <h3>Notes regarding <code>{{ nick }}</code> on <code>{{ network }}</code></h3>
+          </div>
+          <div class="notes-content">
+            {{#notes}}
+            <div class="note-item">{{{ . }}}</div>
+            {{/notes}}
+          </div>
+        </div>
+        {{/showNotes}}
+        
+        <!-- NMAP Results Card (if available) -->
+        {{#showNmap}}
+        <div class="nmap-card">
+          <div class="section-header">
+            <h3>NMAP Results for <code>{{ nick }}</code> <code>{{ ident }}@{{ hostname }}</code></h3>
+          </div>
+          <div class="nmap-content">{{ nmapOutput }}</div>
+        </div>
+        {{/showNmap}}
+      </div>
+      
+      <!-- Meta Card -->
+      <div class="meta-card">
+        <div class="section-header">
+          <h3>Request Information</h3>
+        </div>
+        
+        <div class="params">
+          <div class="param-name">Network:</div>
+          <div class="param-value">{{ network }}</div>
+          <br/>
+
+          <div class="param-name">Nick:</div>
+          <div class="param-value">{{ nick }}</div>
+          <br/>
+
+          {{#channel}}
+          <div class="param-name">Channel:</div>
+          <div class="param-value">{{ channel }}</div>
+          {{/channel}}
+          <br/>
+
+          {{#options.full}}
+          <div class="param-name">Full Lookup:</div>
+          <div class="param-value">Yes</div>
+          {{/options.full}}
+        </div>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p>This document was generated at {{ captureTimestamp }} ({{ timezone }})
+      by <a href="https://discordrc.com" target="_blank"><code>{{ NAME }}-v{{ VERSION }}</code></a>
+      {{#documentExpiresAt}}
+      &amp; will self-destruct in <strong id="countdown-timer">calculating...</strong>
+      <span id="document-expires-at" style="display: none;">{{ documentExpiresAt }}</span>
+      <span id="document-expires-unix" style="display: none;">{{ documentExpiresAtUnix }}</span>
+      <script src="/js/countdownTimer.js"></script>
+      {{/documentExpiresAt}}</p>
+    </div>
+  </div>
+</body>
+</html>

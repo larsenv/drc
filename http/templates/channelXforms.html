@@ -118,28 +118,6 @@
       color: var(--text-primary);
       box-shadow: 0 0 10px rgba(0, 255, 225, 0.2);
     }
-    
-    .footer {
-      margin-top: 3rem;
-      padding-top: 1rem;
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      text-align: center;
-      position: relative;
-    }
-    
-    .footer::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 25%;
-      right: 25%;
-      height: 1px;
-      background: linear-gradient(90deg, 
-        transparent 0%, 
-        var(--accent-blue) 50%, 
-        transparent 100%);
-    }
   </style>
 </head>
 <body>
@@ -193,12 +171,14 @@
     </div>
     
     <div class="footer">
-      <p>This document was generated at {{ captureTimestamp }} 
+      <p>This document was generated at {{ captureTimestamp }} ({{ timezone }})
       by <a href="https://discordrc.com" target="_blank"><code>{{ NAME }}-v{{ VERSION }}</code></a>
       {{#documentExpiresAt}}
-      &amp; will self-destruct at <strong>{{ documentExpiresAt }}</strong>
-      {{/documentExpiresAt}}
-      ({{ timezone }}).</p>
+      &amp; will self-destruct in <strong id="countdown-timer">calculating...</strong>
+      <span id="document-expires-at" style="display: none;">{{ documentExpiresAt }}</span>
+      <span id="document-expires-unix" style="display: none;">{{ documentExpiresAtUnix }}</span>
+      <script src="/js/countdownTimer.js"></script>
+      {{/documentExpiresAt}}</p>
     </div>
   </div>
 </body>

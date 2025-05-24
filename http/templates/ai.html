@@ -7,15 +7,28 @@
   <link rel="stylesheet" href="/templates/common.css">
   <style type="text/css">
     .response-container {
-      display: grid;
-      grid-template-columns: 1fr;
+      display: flex;
+      flex-direction: column;
       gap: 2rem;
       margin: 2rem 0;
     }
     
     @media (min-width: 992px) {
       .response-container {
-        grid-template-columns: 2fr 1fr;
+        flex-direction: row;
+      }
+      
+      .main-content {
+        flex: 2;
+      }
+      
+      .parameters-container {
+        flex: 1;
+        position: sticky;
+        top: 2rem;
+        align-self: flex-start;
+        max-height: calc(100vh - 4rem);
+        overflow-y: auto;
       }
     }
     
@@ -48,6 +61,10 @@
     
     .response-card.anthropic::before {
       background: var(--gradient-glow);
+    }
+    
+    .response-card.openrouter::before {
+      background: linear-gradient(90deg, #4b6cb7, #182848);
     }
     
     .section-header {
@@ -93,6 +110,22 @@
       background-color: rgba(0, 255, 225, 0.03);
     }
     
+    .response-content.openrouter {
+      background-color: rgba(75, 108, 183, 0.03);
+    }
+    
+    /* Flexbox ensures all models are displayed without grid issues */
+    
+    /* Card highlighting on hover */
+    .response-card {
+      transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    
+    .response-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    
     .response-content code {
       color: var(--accent-yellow);
     }
@@ -127,26 +160,8 @@
       color: var(--accent-cyan);
     }
     
-    .footer {
-      margin-top: 3rem;
-      padding-top: 1rem;
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      text-align: center;
-      position: relative;
-    }
-    
-    .footer::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 25%;
-      right: 25%;
-      height: 1px;
-      background: linear-gradient(90deg, 
-        transparent 0%, 
-        var(--accent-blue) 50%, 
-        transparent 100%);
+    .param-value.openrouter {
+      color: #4b6cb7;
     }
     
     .meta-info {
@@ -195,10 +210,88 @@
       color: var(--accent-cyan);
     }
     
+    .ai-model-title .model-badge.openrouter {
+      background-color: rgba(75, 108, 183, 0.1);
+      color: #4b6cb7;
+    }
+    
     .models-grid {
-      display: grid;
+      display: flex;
+      flex-direction: column;
       gap: 1.5rem;
       margin-top: 2rem;
+    }
+    
+    /* Navigation styles */
+    .response-navigation {
+      margin-top: 1.5rem;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      padding: 1.5rem;
+      max-width: 100%;
+    }
+    
+    .nav-header {
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      color: var(--text-secondary);
+    }
+    
+    .nav-links {
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+    
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+      background: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      padding: 0.6rem 0.8rem;
+      font-size: 0.95rem;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      width: 95%;
+      margin: 0 auto;
+    }
+    
+    .nav-link:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent-blue);
+    }
+    
+    .nav-link.openai:hover {
+      border-color: var(--accent-pink);
+    }
+    
+    .nav-link.anthropic:hover {
+      border-color: var(--accent-cyan);
+    }
+    
+    .nav-link.openrouter:hover {
+      border-color: #4b6cb7;
+    }
+    
+    .nav-index {
+      display: inline-block;
+      background: var(--bg-primary);
+      border-radius: 50%;
+      width: 1.4em;
+      height: 1.4em;
+      text-align: center;
+      line-height: 1.4em;
+      font-weight: bold;
+    }
+    
+    .nav-model {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      flex: 1;
+      word-break: break-all;
     }
   </style>
 </head>
@@ -210,18 +303,37 @@
         <div class="prompt-card">
           <div class="section-header">
             <h3>Prompt</h3>
+            {{#isMultipleModels}}
+            <div style="margin-left: auto; font-size: 0.9rem; color: var(--text-secondary);">
+              Showing responses from {{modelCount}} models
+            </div>
+            {{/isMultipleModels}}
           </div>
           <div class="prompt-content">{{ prompt }}</div>
+          
+          {{#isMultipleModels}}
+          <div class="response-navigation">
+            <div class="nav-header">Jump to response:</div>
+            <div class="nav-links">
+              {{#responses}}
+              <a href="#response-{{responseIndex}}" class="nav-link {{provider}}">
+                <span class="nav-index">{{responseIndex}}</span>
+                <span class="nav-model">{{model}}</span>
+              </a>
+              {{/responses}}
+            </div>
+          </div>
+          {{/isMultipleModels}}
         </div>
         
         <!-- AI Response Models -->
         <div class="models-grid">
           {{#responses}}
-          <div class="response-card {{provider}}">
+          <div class="response-card {{provider}}" id="response-{{responseIndex}}" data-model="{{model}}">
             <div class="section-header">
               <div class="ai-model-title">
-                <h3>Response</h3>
-                <span class="model-badge {{provider}}">{{provider}}</span>
+                <h3 id="response-{{responseIndex}}">Response #{{responseIndex}}</h3>
+                <span class="model-badge {{provider}}">{{provider}} {{#model}}({{model}}){{/model}}</span>
               </div>
             </div>
             <div class="response-content {{provider}}">{{{ response }}}</div>
@@ -231,35 +343,22 @@
       </div>
       
       <!-- Parameters Cards -->
-      <div>
+      <div class="parameters-container">
         {{#responses}}
         <div class="meta-card">
           <div class="section-header">
-            <div class="ai-model-title">
-              <h3>Parameters</h3>
-              <span class="model-badge {{provider}}">{{provider}}</span>
+            <div class="ai-model-title" style="width: 100%;">
+              <a href="#response-{{responseIndex}}" class="nav-link {{provider}}" style="padding: 0.5em; margin: 0;">
+                <h4 id="params-{{responseIndex}}" style="margin-right: 1.5em;">#{{responseIndex}}</h4>
+                <span class="model-badge {{provider}}">{{provider}} {{#model}}({{model}}){{/model}}</span>
+              </a>
             </div>
           </div>
           
           <div class="param-grid">
-            <div class="param-name">Query Duration:</div>
+            <div class="param-name">Response time:</div>
             <div class="param-value {{provider}}">{{ queryTimeS }} seconds</div>
-            
-            {{#temperature}}
-            <div class="param-name">Temperature:</div>
-            <div class="param-value {{provider}}">{{ temperature }}</div>
-            {{/temperature}}
-            
-            {{#max_tokens}}
-            <div class="param-name">Max Tokens:</div>
-            <div class="param-value {{provider}}">{{ max_tokens }}</div>
-            {{/max_tokens}}
-            
-            {{#system}}
-            <div class="param-name">System Prompt:</div>
-            <div class="param-value {{provider}}">{{ system }}</div>
-            {{/system}}
-            
+                       
             {{#numTokens}}
             <div class="param-name">Tokens consumed:</div>
             <div class="param-value {{provider}}">{{ numTokens }}</div>
@@ -272,7 +371,7 @@
           </div>
           
           <div class="tech-info">
-            <code>{{ model }}</code> via {{{ viaHTML }}}
+            via {{{ viaHTML }}}
           </div>
         </div>
         {{/responses}}
@@ -280,12 +379,14 @@
     </div>
     
     <div class="footer">
-      <p>This document was generated at {{ captureTimestamp }} 
+      <p>This document was generated at {{ captureTimestamp }} ({{ timezone }})
       by <a href="https://discordrc.com" target="_blank"><code>{{ NAME }}-v{{ VERSION }}</code></a>
       {{#documentExpiresAt}}
-      &amp; will self-destruct at <strong>{{ documentExpiresAt }}</strong>
-      {{/documentExpiresAt}}
-      ({{ timezone }}).</p>
+      &amp; will self-destruct in <strong id="countdown-timer">calculating...</strong>
+      <span id="document-expires-at" style="display: none;">{{ documentExpiresAt }}</span>
+      <span id="document-expires-unix" style="display: none;">{{ documentExpiresAtUnix }}</span>
+      <script src="/js/countdownTimer.js"></script>
+      {{/documentExpiresAt}}</p>
     </div>
   </div>
 </body>

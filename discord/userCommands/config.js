@@ -69,4 +69,27 @@ async function userCommandConfig (context, ...a) {
   }
 }
 
+userCommandConfig.__drcHelp = () => {
+  // Get the configured command prefix character
+  const config = require('config');
+  const cmdPrefix = config.app.allowedSpeakersCommandPrefixCharacter || '!';
+
+  return {
+    title: 'View and manage configuration settings',
+    usage: '<get|set|load> [path] [value]',
+    notes: 'View or modify application configuration. Use dot notation to specify nested properties.',
+    subcommands: {
+      get: {
+        text: `Get current configuration value, e.g., \`${cmdPrefix}config get openai\``
+      },
+      set: {
+        text: `Set configuration value, e.g., \`${cmdPrefix}config set user.someOption true\``
+      },
+      load: {
+        text: 'Load user configuration from Redis'
+      }
+    }
+  };
+};
+
 module.exports = userCommandConfig;

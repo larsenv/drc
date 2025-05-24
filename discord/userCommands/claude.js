@@ -74,17 +74,23 @@ async function f (context) {
   return 'ERROR: ' + error;
 }
 
-f.__drcHelp = () => ({
-  title: 'An interface to Anthropic\'s Claude AI model.',
-  usage: '<options> [prompt]',
-  options: [
-    ['--model', 'Change model', true],
-    ['--maxTokens', 'Set max tokens', true],
-    ['--temperature', 'Set temperature', true],
-    ['--system', 'Set system prompt', true],
-    ['--listModels', 'List available Anthropic models']
-  ],
-  notes: 'Run `!config get anthropic` to see defaults.'
-});
+f.__drcHelp = () => {
+  // Get the configured command prefix character
+  const config = require('config');
+  const cmdPrefix = config.app.allowedSpeakersCommandPrefixCharacter || '!';
+
+  return {
+    title: 'An interface to Anthropic\'s Claude AI model.',
+    usage: '<options> [prompt]',
+    options: [
+      ['--model', 'Change model', true],
+      ['--maxTokens', 'Set max tokens', true],
+      ['--temperature', 'Set temperature', true],
+      ['--system', 'Set system prompt', true],
+      ['--listModels', 'List available Anthropic models']
+    ],
+    notes: `Run \`${cmdPrefix}config get anthropic\` to see defaults. The config also supports a "summaryModel" field to specify a different model for generating channel summaries in the digest command.`
+  };
+};
 
 module.exports = f;

@@ -268,7 +268,11 @@ async function f (context) {
 }
 
 f.__drcHelp = () => {
-  return '!stats [options]\n\nOptions:\n' +
+  // Get the configured command prefix character
+  const config = require('config');
+  const cmdPrefix = config.app.allowedSpeakersCommandPrefixCharacter || '!';
+
+  return `${cmdPrefix}stats [options]\n\nOptions:\n` +
     '   --silent   Just calculate, don\'t post anything.\n' +
     '   --long     Include additional embeds with channel count information.';
 };

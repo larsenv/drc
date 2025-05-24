@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{NAME}} - Live Logs: 
+    {{#daemon_all}}
+      {{#daemon_list}}Selected Daemons ({{daemon_list}}){{/daemon_list}}
+      {{^daemon_list}}All Daemons{{/daemon_list}}
+    {{/daemon_all}}
+    {{^daemon_all}}{{daemon}}{{/daemon_all}}
+  </title>
+  <link rel="stylesheet" href="/templates/common.css">
+  <style>
+    :root {
+      --color-discord: #4277ff;
+      --color-http: #51c254;
+      --color-irc: #f7d129;
+      --color-prometheus: #f24845;
+    }
+
+    .container {
+      max-width: none;
+    }
+    
+    .log-container {
+      background-color: #2d2d2d;
+      color: #f8f8f8;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 1rem;
+      border-radius: 4px;
+      height: 80vh;
+      min-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      margin-bottom: 1rem;
+    }
+
+    .log-line {
+      margin: 0;
+      padding: 2px 0;
+      border-bottom: 1px solid #444;
+      font-size: 0.8em;
+      line-height: 1.4;
+    }
+
+    .log-timestamp {
+      display: inline-block;
+      margin-right: 8px;
+      color: #aaa;
+      font-size: 0.85em;
+    }
+    
+    .log-daemon {
+      display: inline-block;
+      margin-right: 8px;
+      padding: 0 4px;
+      border-radius: 3px;
+      font-size: 0.8em;
+      font-weight: bold;
+      text-transform: uppercase;
+      border-radius: 0.5em;
+      border-left: 1px solid white;
+      border-right: 1px solid white;
+      width: 24px;
+      text-align: center;
+    }
+    
+    .daemon-discord {
+      color: var(--color-discord);
+    }
+    
+    .daemon-http {
+      color: var(--color-http);
+    }
+    
+    .daemon-irc {
+      color: var(--color-irc);
+    }
+    
+    .daemon-prometheus {
+      color: var(--color-prometheus);
+    }
+
+    /* ANSI color styles */
+    .ansi-black { color: #3A3A3A; }
+    .ansi-red { color: #FF5370; }
+    .ansi-green { color: #C3E88D; }
+    .ansi-yellow { color: #fdda98; }
+    .ansi-blue { color: #82AAFF; }
+    .ansi-magenta { color: #e3c2fa; }
+    .ansi-cyan { color: #89DDFF; }
+    .ansi-white { color: #EEFFFF; }
+    
+    .ansi-bright-black { color: #676E95; }
+    .ansi-bright-red { color: #FF5370; }
+    .ansi-bright-green { color: #C3E88D; }
+    .ansi-bright-yellow { color: #fce6bd; }
+    .ansi-bright-blue { color: #82AAFF; }
+    .ansi-bright-magenta { color: #e7cff8; }
+    .ansi-bright-cyan { color: #89DDFF; }
+    .ansi-bright-white { color: #FFFFFF; }
+    
+    .ansi-bg-black { background-color: #3A3A3A; }
+    .ansi-bg-red { background-color: #FF5370; }
+    .ansi-bg-green { background-color: #C3E88D; }
+    .ansi-bg-yellow { background-color: #fdd892; }
+    .ansi-bg-blue { background-color: #82AAFF; }
+    .ansi-bg-magenta { background-color: #C792EA; }
+    .ansi-bg-cyan { background-color: #89DDFF; }
+    .ansi-bg-white { background-color: #EEFFFF; }
+    
+    /* Log level styles */
+    .log-level {
+      display: inline-block;
+      padding: 1px 4px;
+      margin-right: 5px;
+      border-radius: 3px;
+      font-weight: bold;
+      font-size: 0.75em;
+      text-transform: uppercase;
+      width: 28px;
+      text-align: center;
+    }
+    
+    .log-level-error {
+      background-color: #FF5370;
+      color: white;
+    }
+    
+    .log-level-warn, .log-level-warning {
+      background-color: #fdd892;
+      color: black;
+    }
+    
+    .log-level-log {
+      background-color: #82AAFF;
+      color: white;
+    }
+
+    .log-level-info {
+      background-color: #5d83d4;
+      color: white;
+    }
+    
+    .log-level-debug {
+      background-color: #b1c88f;
+      color: black;
+    }
+    
+    .log-level-trace {
+      background-color: #e3c2fa;
+      color: black;
+    }
+    
+    .log-level-verbose {
+      background-color: #89DDFF;
+      color: black;
+    }
+    
+    .ansi-bold { font-weight: bold; }
+    .ansi-italic { font-style: italic; }
+    .ansi-underline { text-decoration: underline; }
+    
+    .log-error {
+      color: #ff6b6b;
+    }
+
+    .log-info {
+      color: #69c0ff;
+    }
+
+    .log-warn {
+      color: #ffd666;
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #444;
+      padding: 8px 16px;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      color: white;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+
+    .status-connected {
+      background-color: #52c41a;
+    }
+
+    .status-disconnected {
+      background-color: #ff4d4f;
+    }
+
+    .status-expired {
+      background-color: #faad14;
+    }
+
+    #connection-status {
+      display: flex;
+      align-items: center;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .font-controls {
+      display: flex;
+      gap: 4px;
+      margin-left: 8px;
+    }
+
+    .btn {
+      padding: 4px 8px;
+      background-color: #1890ff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    .font-controls .btn {
+      padding: 4px 8px;
+      font-weight: bold;
+    }
+
+    .btn:hover {
+      background-color: #40a9ff;
+    }
+
+    .btn:disabled {
+      background-color: #d9d9d9;
+      cursor: not-allowed;
+    }
+
+    .daemon-filter {
+      margin-left: 2px;
+      margin-right: 2px;
+      color: rgb(0, 0, 63);
+    }
+    
+    .daemon-filter.active {
+      outline: 2px solid white;
+      border-radius: 4px;
+      box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+    }
+
+    #autoscroll-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .counter {
+      color: #888;
+      margin-left: 16px;
+    }
+
+    .log-mark {
+      color: var(--accent-cyan);
+      font-weight: bold;
+      text-align: center;
+      padding: 5px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+    
+    .log-client-message {
+      background-color: rgba(100, 149, 237, 0.3); /* CornflowerBlue with transparency */
+      padding: 2px 4px;
+      margin: 3px 0;
+      border-left: 3px solid cornflowerblue;
+      border-radius: 2px;
+      font-size: 0.75em;
+    }
+
+    #time-remaining {
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    @media (prefers-color-scheme: light) {
+      .log-container {
+        background-color: #f0f0f0;
+        color: #333;
+        border: 1px solid #ddd;
+      }
+      
+      .log-line {
+        border-bottom: 1px solid #ddd;
+      }
+      
+      .log-timestamp {
+        color: #666;
+      }
+      
+      .log-error {
+        color: #d32f2f;
+      }
+      
+      .log-info {
+        color: #1976d2;
+      }
+      
+      .log-warn {
+        color: #f57c00;
+      }
+      
+      .log-client-message {
+        background-color: rgba(70, 130, 180, 0.2); /* Lighter cornflowerblue for light mode */
+        border-left: 3px solid steelblue;
+      }
+      
+      .status-bar {
+        background-color: #e8e8e8;
+        color: #333;
+      }
+      
+      /* Light mode log level badges */
+      .log-level-error {
+        background-color: #f44336;
+        color: white;
+      }
+      
+      .log-level-warn, .log-level-warning {
+        background-color: #ff9800;
+        color: black;
+      }
+      
+      .log-level-info {
+        background-color: #2196f3;
+        color: white;
+      }
+      
+      .log-level-debug {
+        background-color: #4caf50;
+        color: white;
+      }
+      
+      .log-level-trace {
+        background-color: #9c27b0;
+        color: white;
+      }
+      
+      .log-level-verbose {
+        background-color: #00bcd4;
+        color: black;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="status-bar">
+      <div>
+        <h4>Logs for{{#daemon_all}}{{#daemon_list}}: {{daemon_list}}{{/daemon_list}}
+          {{^daemon_list}} all daemons{{/daemon_list}}
+        {{/daemon_all}}
+        {{^daemon_all}}{{daemon}}{{/daemon_all}}</h4>
+      </div>
+      <div id="connection-status">
+        <span class="status-indicator status-connected"></span>
+        <span>Connected</span>
+      </div>
+    
+      <div class="controls">
+        <div style="font-family: 'Courier New', Courier, monospace; font-size: 0.75em; display: flex; gap: 8px; align-items: center;">
+          <div class="counter"><span id="line-count">0</span> lines seen,</div>
+          <span id="cache-status" style="margin-left: 10px; font-size: 0.9em; color: #999;"></span>
+        </div>
+      
+      </div>
+
+      <div id="time-remaining">
+        <span id="countdown">30:00</span>
+      </div>
+    </div>
+    
+    <div class="controls" style="align-items: center; margin-bottom: 1em;">
+      <button id="clear-logs" class="btn">Clear</button>
+      <button id="add-mark" class="btn">Mark</button>
+      <div class="font-controls">
+        <button id="font-decrease" class="btn">A-</button>
+        <button id="font-increase" class="btn">A+</button>
+        <button id="font-reset" class="btn">Reset</button>
+      </div>
+      
+      <div class="memory-settings" style="display: flex; gap: 8px; align-items: center;">
+        <label for="cache-limit" style="font-weight: bold; margin-right: 4px; margin-left: 12px">Cache limit:</label>
+        <input type="number" id="cache-limit" min="1000" max="50000" step="1000" style="width: 50px; padding: 4px;" />
+        <button id="apply-cache-limit" class="btn">Set</button>
+      </div>
+      
+      <div class="daemon-filters" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+        <span style="font-weight: bold; margin-right: 4px; margin-left: 12px">Daemon Filter:</span>
+        <button id="filter-all" class="btn daemon-filter active" style="background-color: #444; color: white;">All</button>
+        <div id="daemon-filter-buttons"></div>
+      </div>
+      
+      <div id="autoscroll-toggle">
+        <label for="autoscroll">Auto-scroll</label>
+        <input type="checkbox" id="autoscroll" checked>
+      </div>
+    </div>
+    
+    <div id="log-container" class="log-container"></div>
+  </div>
+
+  <script src="/templates/ansiToHtml.js"></script>
+  <script>
+    // Page configuration from template
+    const config = {
+      streamId: '{{streamId}}',
+      daemon: '{{daemon}}',
+      expiresAt: {{expiresAt}},
+      wsEndpoint: '/ws/liveLogs/{{streamId}}'  // Build URL directly with streamId to avoid encoding issues
+    };
+    
+    // DOM elements
+    const logContainer = document.getElementById('log-container');
+    const connectionStatus = document.getElementById('connection-status');
+    const timeRemaining = document.getElementById('countdown');
+    const clearLogsBtn = document.getElementById('clear-logs');
+    const autoscrollToggle = document.getElementById('autoscroll');
+    const lineCountDisplay = document.getElementById('line-count');
+    const fontIncreaseBtn = document.getElementById('font-increase');
+    const fontDecreaseBtn = document.getElementById('font-decrease');
+    const fontResetBtn = document.getElementById('font-reset');
+    
+    // State
+    let lineCount = 0;
+    let webSocket = null;
+    let reconnectAttempt = 0;
+    let maxReconnectAttempts = 5;
+    let isExpired = false;
+    let currentFontSize = 0.8; // Default font size defined in CSS
+    let currentDaemonFilter = null; // Currently selected daemon filter (null = all)
+    
+    // In-memory log cache
+    const logCache = [];
+    let maxCacheLines = 5000; // Default maximum number of lines to cache
+    
+    // Known daemons we've seen
+    const knownDaemons = new Set();
+    
+    // For deduplication
+    const recentMessages = new Set();
+    const MESSAGE_HISTORY_SIZE = 100; // How many recent messages to keep for deduplication
+    
+    // Connect to WebSocket
+    function connectWebSocket() {
+      if (isExpired) {
+        updateConnectionStatus('expired');
+        return;
+      }
+      
+      // Create WebSocket URL from current location and streamId
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}${config.wsEndpoint}`;
+      
+      console.log(`Attempting to connect to WebSocket at: ${wsUrl}`);
+      addLogLine({
+        type: 'info',
+        message: `Connecting to WebSocket at: ${wsUrl}...`,
+        timestamp: Date.now(),
+        isClientMessage: true
+      });
+      
+      try {
+        webSocket = new WebSocket(wsUrl);
+        
+        webSocket.onopen = (event) => {
+          console.log('WebSocket connection established');
+          reconnectAttempt = 0;
+          updateConnectionStatus('connected');
+          
+          addLogLine({
+            type: 'info',
+            message: 'WebSocket connection established successfully',
+            timestamp: Date.now(),
+            isClientMessage: true
+          });
+        };
+        
+        webSocket.onmessage = (event) => {
+          console.log('Received message:', event.data);
+          try {
+            const data = JSON.parse(event.data);
+            processLogMessage(data);
+          } catch (error) {
+            console.error('Error processing message:', error);
+            addLogLine({
+              type: 'error',
+              message: 'Error processing message: ' + error.message,
+              timestamp: Date.now()
+            });
+          }
+        };
+        
+        webSocket.onclose = (event) => {
+          console.log('WebSocket connection closed', event);
+          updateConnectionStatus('disconnected');
+          
+          addLogLine({
+            type: 'warn',
+            message: `WebSocket connection closed (Code: ${event.code}, Reason: ${event.reason || 'No reason provided'})`,
+            timestamp: Date.now(),
+            isClientMessage: true
+          });
+          
+          // Attempt to reconnect if not expired
+          if (!isExpired && reconnectAttempt < maxReconnectAttempts) {
+            reconnectAttempt++;
+            const delay = Math.min(1000 * reconnectAttempt, 5000);
+            addLogLine({
+              type: 'info',
+              message: `Connection lost. Attempting to reconnect in ${delay/1000} seconds... (Attempt ${reconnectAttempt}/${maxReconnectAttempts})`,
+              timestamp: Date.now(),
+              isClientMessage: true
+            });
+            
+            setTimeout(() => {
+              connectWebSocket();
+            }, delay);
+          } else if (reconnectAttempt >= maxReconnectAttempts) {
+            addLogLine({
+              type: 'error',
+              message: 'Maximum reconnection attempts reached. Please reload the page to try again.',
+              timestamp: Date.now(),
+              isClientMessage: true
+            });
+          }
+        };
+        
+        webSocket.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          addLogLine({
+            type: 'error',
+            message: 'WebSocket connection error. Please check browser console for details.',
+            timestamp: Date.now(),
+            isClientMessage: true
+          });
+        };
+      } catch (error) {
+        // Handle any errors during WebSocket creation
+        console.error('Error creating WebSocket:', error);
+        addLogLine({
+          type: 'error',
+          message: `Failed to create WebSocket connection: ${error.message}`,
+          timestamp: Date.now(),
+          isClientMessage: true
+        });
+        
+        updateConnectionStatus('disconnected');
+      }
+    }
+    
+    // Process incoming log messages
+    function processLogMessage(data) {
+      switch (data.type) {
+        case 'heartbeat':
+          // Quiet heartbeats, just update connection status
+          updateConnectionStatus('connected');
+          break;
+          
+        case 'log':
+          // For log messages, split them by line
+          if (data.message) {
+            // Add data immediately to give feedback that we're receiving data
+            console.log(`Processing log message (${data.message.length} bytes)`);
+            
+            // Highlight docker colors in log output
+            const colorRegex = /\[(\d+)m/g;
+            let logType = 'log';
+            
+            // Check if the message contains error indicators
+            if (data.message.toLowerCase().includes('error') || 
+                data.message.includes('[31m')) { // Red color in ANSI
+              logType = 'error';
+            } else if (data.message.toLowerCase().includes('warn') || 
+                      data.message.includes('[33m')) { // Yellow color in ANSI
+              logType = 'warn';
+            }
+            
+            const lines = data.message.split('\n');
+            for (const line of lines) {
+              if (line.trim()) {
+                // Keep the line with ANSI codes for HTML conversion
+                const cleanLine = line;
+                
+                // Make sure we pass along the daemon name for combined view
+                addLogLine({
+                  type: logType,
+                  message: cleanLine,
+                  timestamp: data.timestamp,
+                  daemon: data.daemon // Keep daemon identifier for badge
+                });
+              }
+            }
+          } else {
+            addLogLine(data);
+          }
+          break;
+        case 'error':
+        case 'warn':
+          // These come from the server, so treat as normal logs
+          addLogLine(data);
+          break;
+        case 'info':
+          // Server info message (client messages are already marked with isClientMessage)
+          addLogLine(data);
+          break;
+        case 'end':
+          addLogLine({
+            type: 'info',
+            message: 'Log stream has ended: ' + data.message,
+            timestamp: data.timestamp,
+            isClientMessage: true
+          });
+          break;
+        case 'error':
+          if (data.message === 'Stream has expired') {
+            isExpired = true;
+            updateConnectionStatus('expired');
+            addLogLine({
+              type: 'info',
+              message: 'This log stream has expired.',
+              timestamp: Date.now(),
+              isClientMessage: true
+            });
+          } else {
+            // Regular server error - display in the UI
+            addLogLine(data);
+          }
+          break;
+        case 'connected':
+          addLogLine({
+            type: 'info',
+            message: `Connected to log stream for daemon: ${data.daemon}`,
+            timestamp: Date.now(),
+            isClientMessage: true
+          });
+          break;
+        default:
+          console.warn('Unknown message type:', data.type);
+      }
+    }
+    
+    // Add a log line to the display with deduplication and caching
+    function addLogLine(data) {
+      // Create a signature for deduplication
+      // For logs, we use timestamp+message for deduplication
+      // For info/control messages, we only deduplicate exact matches
+      let messageSignature;
+      if (data.type === 'log') {
+        messageSignature = `${data.type}:${data.message}`;
+      } else {
+        messageSignature = `${data.type}:${data.timestamp}:${data.message}`;
+      }
+      
+      // Skip if we've seen this exact message recently
+      if (recentMessages.has(messageSignature)) {
+        console.log('Skipping duplicate message');
+        return;
+      }
+      
+      // Add to recent messages and maintain the set size
+      recentMessages.add(messageSignature);
+      if (recentMessages.size > MESSAGE_HISTORY_SIZE) {
+        // Remove the oldest entry (first item in the set)
+        recentMessages.delete(recentMessages.values().next().value);
+      }
+      
+      // Track this daemon if it's a new one we haven't seen (for regular log messages)
+      if (!data.isClientMessage && data.daemon && !knownDaemons.has(data.daemon)) {
+        knownDaemons.add(data.daemon);
+        updateDaemonFilterButtons();
+      }
+      
+      // Store all log entries in our cache, including client messages
+      logCache.push(data);
+      
+      // Enforce the cache size limit
+      while (logCache.length > maxCacheLines) {
+        logCache.shift();
+      }
+      
+      // Update cache status display if lines have been processed
+      if (logCache.length % 50 === 0) {
+        updateCacheStatus();
+      }
+      
+      // Skip adding to the UI if it doesn't match the current filter
+      // But always show system messages (those without a daemon property)
+      // And always show client messages
+      if (currentDaemonFilter && !data.isClientMessage && data.daemon && data.daemon !== currentDaemonFilter) {
+        return;
+      }
+      // Note: Client messages (data.isClientMessage === true) always display regardless of filtering
+      
+      // Create the element based on whether it's a client-side message or regular log
+      let element;
+      
+      if (data.isClientMessage) {
+        // This is a client-side injected message - use special styling
+        element = document.createElement('div');
+        element.className = 'log-client-message';
+        
+        // Apply the current font size to client messages too
+        element.style.fontSize = `${currentFontSize}em`;
+        
+        // Add timestamp
+        const timestamp = document.createElement('span');
+        timestamp.className = 'log-timestamp';
+        timestamp.textContent = new Date(data.timestamp).toLocaleTimeString();
+        element.appendChild(timestamp);
+        
+        // Add message content
+        const content = document.createElement('span');
+        content.textContent = data.message;
+        element.appendChild(content);
+      } else {
+        // Regular log line from the server
+        element = document.createElement('div');
+        element.className = `log-line ${data.type ? 'log-' + data.type : ''}`;
+        
+        // Apply the current font size to the new log line
+        element.style.fontSize = `${currentFontSize}em`;
+        
+        // Add daemon label for combined view if the daemon is specified
+        if (data.daemon) {
+          const daemonLabel = document.createElement('span');
+          daemonLabel.className = `log-daemon daemon-${data.daemon}`;
+          daemonLabel.textContent = data.daemon.substring(0, 4).toUpperCase();
+          element.appendChild(daemonLabel);
+        }
+        
+        const content = document.createElement('span');
+        
+        // Convert ANSI escape sequences to HTML elements with appropriate classes
+        const htmlContent = convertAnsiToHtml(data.message);
+        content.appendChild(htmlContent);
+        
+        element.appendChild(content);
+      }
+      
+      logContainer.appendChild(element);
+      lineCount++;
+      lineCountDisplay.textContent = lineCount;
+      
+      // Update cache status display with each new line
+      updateCacheStatus();
+      
+      // Auto-scroll if enabled
+      if (autoscrollToggle.checked) {
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+      
+      // Limit the number of lines in the container to prevent browser performance issues
+      const MAX_VISIBLE_LINES = 1000;
+      while (logContainer.childElementCount > MAX_VISIBLE_LINES) {
+        logContainer.removeChild(logContainer.firstChild);
+      }
+    }
+    
+    // Update the filter buttons based on known daemons
+    function updateDaemonFilterButtons() {
+      const filterButtonsContainer = document.getElementById('daemon-filter-buttons');
+      
+      // Clear existing buttons
+      filterButtonsContainer.innerHTML = '';
+      
+      // Create a button for each known daemon
+      knownDaemons.forEach(daemon => {
+        const button = document.createElement('button');
+        button.id = `filter-${daemon}`;
+        button.className = `btn daemon-filter daemon-${daemon}`;
+        button.textContent = daemon.toUpperCase().substring(0, 4);
+        
+        // Apply daemon-specific color from CSS variables
+        const daemonColor = getComputedStyle(document.documentElement).getPropertyValue(`--color-${daemon}`).trim() || '#555';
+        button.style.backgroundColor = daemonColor;
+        
+        // Set active state if this is the current filter
+        if (currentDaemonFilter === daemon) {
+          button.classList.add('active');
+        }
+        
+        // Add click event to filter logs
+        button.addEventListener('click', () => {
+          filterLogsByDaemon(daemon);
+        });
+        
+        filterButtonsContainer.appendChild(button);
+      });
+    }
+    
+    // Filter logs by selected daemon
+    function filterLogsByDaemon(daemon) {
+      // Update the current filter
+      currentDaemonFilter = daemon;
+      
+      // Update button active states
+      document.querySelectorAll('.daemon-filter').forEach(button => {
+        button.classList.remove('active');
+      });
+      
+      if (daemon) {
+        document.getElementById(`filter-${daemon}`).classList.add('active');
+      } else {
+        document.getElementById('filter-all').classList.add('active');
+      }
+      
+      // Clear the current log display
+      logContainer.innerHTML = '';
+      
+      // Get client messages from the cache
+      const clientMessages = [];
+      document.querySelectorAll('.log-client-message').forEach(el => {
+        clientMessages.push({
+          isClientMessage: true,
+          message: el.textContent.replace(/^\d+:\d+:\d+ /, ''), // Remove timestamp
+          timestamp: Date.now()
+        });
+      });
+      
+      // Add filtered logs back to the display
+      if (daemon) {
+        // Filter for specific daemon, but always include system messages (those without a daemon)
+        logCache.filter(data => data.daemon === daemon || !data.daemon).forEach(data => {
+          // Create the log element (simplified version without caching)
+          renderLogElement(data);
+        });
+      } else {
+        // Show all logs
+        logCache.forEach(data => {
+          renderLogElement(data);
+        });
+      }
+      
+      // Auto-scroll if enabled
+      if (autoscrollToggle.checked) {
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+    }
+    
+    // Render a log element without caching (used by filter function)
+    function renderLogElement(data) {
+      let element;
+      
+      if (data.isClientMessage) {
+        // This is a client-side injected message - use special styling
+        element = document.createElement('div');
+        element.className = 'log-client-message';
+        
+        // Apply the current font size to client messages too
+        element.style.fontSize = `${currentFontSize}em`;
+        
+        // Add timestamp
+        const timestamp = document.createElement('span');
+        timestamp.className = 'log-timestamp';
+        timestamp.textContent = new Date(data.timestamp).toLocaleTimeString();
+        element.appendChild(timestamp);
+        
+        // Add message content
+        const content = document.createElement('span');
+        content.textContent = data.message;
+        element.appendChild(content);
+      } else {
+        // Regular log line from the server
+        element = document.createElement('div');
+        element.className = `log-line ${data.type ? 'log-' + data.type : ''}`;
+        
+        // Apply the current font size
+        element.style.fontSize = `${currentFontSize}em`;
+        
+        // Add daemon label if the daemon is specified
+        if (data.daemon) {
+          const daemonLabel = document.createElement('span');
+          daemonLabel.className = `log-daemon daemon-${data.daemon}`;
+          daemonLabel.textContent = (data.daemon.length === 3 ? `${data.daemon} ` : data.daemon).substring(0, 4).toUpperCase();
+          element.appendChild(daemonLabel);
+        }
+        
+        const content = document.createElement('span');
+        
+        // Convert ANSI escape sequences to HTML elements with appropriate classes
+        const htmlContent = convertAnsiToHtml(data.message);
+        content.appendChild(htmlContent);
+        
+        element.appendChild(content);
+      }
+      
+      logContainer.appendChild(element);
+    }
+    
+    // Update the connection status display
+    function updateConnectionStatus(status) {
+      const statusIndicator = connectionStatus.querySelector('.status-indicator');
+      const statusText = connectionStatus.querySelector('span:not(.status-indicator)');
+      
+      statusIndicator.className = 'status-indicator';
+      
+      switch (status) {
+        case 'connected':
+          statusIndicator.classList.add('status-connected');
+          statusText.textContent = 'Connected';
+          break;
+        case 'disconnected':
+          statusIndicator.classList.add('status-disconnected');
+          statusText.textContent = 'Disconnected';
+          break;
+        case 'expired':
+          statusIndicator.classList.add('status-expired');
+          statusText.textContent = 'Expired';
+          if (webSocket && webSocket.readyState === WebSocket.OPEN) {
+            webSocket.close();
+          }
+          break;
+      }
+    }
+    
+    // Initialize countdown timer
+    function initCountdown() {
+      const updateCountdown = () => {
+        const now = Date.now();
+        const remaining = config.expiresAt - now;
+        
+        if (remaining <= 0) {
+          timeRemaining.textContent = 'Expired';
+          isExpired = true;
+          updateConnectionStatus('expired');
+          return;
+        }
+        
+        const minutes = Math.floor(remaining / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+        timeRemaining.textContent = `Expires in ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+        
+        setTimeout(updateCountdown, 1000);
+      };
+      
+      updateCountdown();
+    }
+    
+    // Event listeners
+    clearLogsBtn.addEventListener('click', () => {
+      logContainer.innerHTML = '';
+      lineCount = 0;
+      lineCountDisplay.textContent = '0';
+      
+      addLogLine({
+        type: 'info',
+        message: 'Logs cleared',
+        timestamp: Date.now(),
+        isClientMessage: true
+      });
+    });
+    
+    document.getElementById('add-mark').addEventListener('click', () => {
+      const mark = document.createElement('div');
+      mark.className = 'log-mark';
+      mark.textContent = '===== ===== ===== MARK ===== ===== =====';
+      
+      logContainer.appendChild(mark);
+      
+      // Auto-scroll if enabled
+      if (autoscrollToggle.checked) {
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+    });
+    
+    // Font size control functions
+    function updateLogFontSize() {
+      // Update the font size for both regular log lines and client-side messages
+      const logLines = document.querySelectorAll('.log-line, .log-client-message');
+      logLines.forEach(line => {
+        line.style.fontSize = `${currentFontSize}em`;
+      });
+      
+      // Store the current font size in local storage for persistence
+      localStorage.setItem('logFontSize', currentFontSize);
+    }
+    
+    // Load font size from local storage if available
+    function loadFontSizePreference() {
+      const savedFontSize = localStorage.getItem('logFontSize');
+      if (savedFontSize !== null) {
+        currentFontSize = parseFloat(savedFontSize);
+        updateLogFontSize();
+      }
+    }
+    
+    // Font size increase button
+    fontIncreaseBtn.addEventListener('click', () => {
+      if (currentFontSize < 2.0) { // Max font size
+        currentFontSize += 0.1;
+        updateLogFontSize();
+      }
+    });
+    
+    // Font size decrease button
+    fontDecreaseBtn.addEventListener('click', () => {
+      if (currentFontSize > 0.5) { // Min font size
+        currentFontSize -= 0.1;
+        updateLogFontSize();
+      }
+    });
+    
+    // Font size reset button
+    fontResetBtn.addEventListener('click', () => {
+      currentFontSize = 0.8; // Reset to default
+      updateLogFontSize();
+    });
+    
+    // Initialize filter buttons
+    function initFilterButtons() {
+      // Set up the "All Daemons" button click handler
+      document.getElementById('filter-all').addEventListener('click', () => {
+        filterLogsByDaemon(null); // null means show all daemons
+      });
+    }
+    
+    // Initialize cache limit controls
+    function initCacheLimitControls() {
+      const cacheLimitInput = document.getElementById('cache-limit');
+      const applyCacheLimitBtn = document.getElementById('apply-cache-limit');
+      const cacheStatusSpan = document.getElementById('cache-status');
+      
+      // Set initial value from current max
+      cacheLimitInput.value = maxCacheLines;
+      updateCacheStatus();
+      
+      // Apply button handler
+      applyCacheLimitBtn.addEventListener('click', () => {
+        const newLimit = parseInt(cacheLimitInput.value, 10);
+        
+        // Validate the input
+        if (isNaN(newLimit) || newLimit < 1000) {
+          cacheStatusSpan.textContent = 'Invalid value! Min: 1000';
+          return;
+        }
+        
+        // Update the cache limit
+        maxCacheLines = newLimit;
+        localStorage.setItem('logCacheLimit', maxCacheLines);
+        
+        // Trim the cache if needed
+        while (logCache.length > maxCacheLines) {
+          logCache.shift();
+        }
+        
+        updateCacheStatus();
+        cacheStatusSpan.textContent = `Limit applied: ${maxCacheLines} lines`;
+        
+        // Reset status message after 3 seconds
+        setTimeout(() => {
+          updateCacheStatus();
+        }, 3000);
+      });
+    }
+    
+    // Update the cache status display
+    function updateCacheStatus() {
+      const cacheStatusSpan = document.getElementById('cache-status');
+      cacheStatusSpan.textContent = `cache: ${Number(logCache.length / maxCacheLines * 100).toFixed()}%`;
+    }
+    
+    // Load cache limit from local storage or use default
+    function loadCacheLimitPreference() {
+      const savedCacheLimit = localStorage.getItem('logCacheLimit');
+      if (savedCacheLimit !== null) {
+        maxCacheLines = parseInt(savedCacheLimit, 10);
+      }
+    }
+    
+    // Initialize the page
+    function init() {
+      addLogLine({
+        type: 'info',
+        message: `Initializing live logs for daemon: ${config.daemon}`,
+        timestamp: Date.now(),
+        isClientMessage: true
+      });
+      
+      // Load saved font size preference
+      loadFontSizePreference();
+      
+      // Load saved cache limit preference
+      loadCacheLimitPreference();
+      
+      // Initialize filter buttons and cache controls
+      initFilterButtons();
+      initCacheLimitControls();
+      
+      connectWebSocket();
+      initCountdown();
+    }
+    
+    // Start when the page loads
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>

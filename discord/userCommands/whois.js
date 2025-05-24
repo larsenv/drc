@@ -55,6 +55,14 @@ async function whois (context, ...a) {
     context.sendToBotChan(`Running FULL whois on ${nick} (${network}); this may take awhile...`);
   }
 
+  // Store HTML option for later processing in the full handler
+  // Default to generating HTML view unless --no-html or --no-web is specified
+  if (reqObj.data.options?.noHtml || reqObj.data.options?.noWeb) {
+    reqObj.data.generateHTML = false;
+  } else {
+    reqObj.data.generateHTML = true;
+  }
+
   await context.publish(reqObj);
 }
 
@@ -65,7 +73,9 @@ whois.__drcHelp = () => {
     options: [
       ['--full', 'Run a deep alias check as well. **Warning**: may be very resource-heavy!'],
       ['--userFirstSeen', 'Include information on when the user was first seen on the network.'],
-      ['--nmap', "If the user's hostname is a valid IP address, run `nmap` on it."]
+      ['--nmap', "If the user's hostname is a valid IP address, run `nmap` on it."],
+      ['--no-html, --no-web', 'Disable the HTML page generation (enabled by default)'],
+      ['--includeNotes', 'Include user notes in the HTML output (hidden by default)']
     ]
   };
 };

@@ -45,7 +45,8 @@ async function plotMpmDataRender (data, maxY, {
   chatLinesColor = 'dark-turquoise',
   totalLinesColor = 'web-blue',
   asOfDate = null,
-  produceBackupIfExtant = true
+  produceBackupIfExtant = true,
+  plotStyle = 'filledcurve'
 } = {}) {
   const fName = outPath || plotMpmOutputFilename();
   const tName = path.join(os.tmpdir(), `drc-mpmplot.${nanoid()}.dat`);
@@ -80,10 +81,15 @@ async function plotMpmDataRender (data, maxY, {
     gnuplotCmds.push('set logscale y');
   }
 
-  const plotLines = [`'${tName}' using 0:2 with filledcurve y1=0 lc rgb "${chatLinesColor}" title 'Chat'`];
+  // Determine plot style - lines or filledcurve
+  const plotStyleString = plotStyle === 'lines'
+    ? 'with lines lw 2'
+    : 'with filledcurve y1=0';
+
+  const plotLines = [`'${tName}' using 0:2 ${plotStyleString} lc rgb "${chatLinesColor}" title 'Chat'`];
   const totalTotalCol = data.reduce((a, [,, x]) => a + Number(x), 0);
   if (!Number.isNaN(totalTotalCol) && totalTotalCol !== 0) {
-    plotLines.unshift(`'${tName}' using 0:3 with filledcurve y1=0 lc rgb "${totalLinesColor}" title 'Total'`);
+    plotLines.unshift(`'${tName}' using 0:3 ${plotStyleString} lc rgb "${totalLinesColor}" title 'Total'`);
   }
 
   gnuplotCmds = [

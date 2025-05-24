@@ -179,8 +179,11 @@ resolver.__functions.ping.__drcHelp = pingHelp;
 
 const digestHelp = () => ({
   title: 'Generate a message digest',
-  usage: 'network minutes',
-  notes: 'Creates a digest of messages from the specified network within the given time frame in minutes.'
+  usage: 'network minutes [--serve]',
+  notes: 'Creates a digest of messages from the specified network within the given time frame in minutes. ' +
+         'Use the --serve option to create an HTML document with the message digest. ' +
+         'When --serve is used, the digest will also include AI-generated channel summaries using Anthropic\'s Claude. ' +
+         'The model used for summaries can be configured with the "summaryModel" field in the Anthropic config.'
 });
 resolver.__functions.digest.__drcHelp = digestHelp;
 

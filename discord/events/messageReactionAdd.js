@@ -36,6 +36,7 @@ async function aiQuestion (aiName, context, data) {
     ...context,
     options: {
       ...context.options,
+      ttl: -1,
       system: (context.options?.system ?? '') + config.genai.emojiReactionSystemPrompt
     },
     argObj: { _: data.message.content.split(' ') }
@@ -43,8 +44,13 @@ async function aiQuestion (aiName, context, data) {
 }
 
 const allowedReactions = {
-  '%F0%9F%87%AC': aiQuestion.bind(null, 'gpt'), // "🇬"
-  '%F0%9F%A4%94': aiQuestion.bind(null, 'claude'), // "🤔"
+  '%F0%9F%A4%94': aiQuestion.bind(null, 'ai'), // "🤔"
+  '%F0%9F%85%B0%EF%B8%8F': aiQuestion.bind(null, 'ai'), // "🅰️"
+
+  '%F0%9F%87%B9': (context, data) => { // "🇹"
+    data.message.content = `Translate the following into English: "${data.message.content}"`;
+    return aiQuestion('ai', context, data);
+  },
 
   '%F0%9F%87%BC': whois, // "🇼"
   '%E2%9D%94': whois, // "❔"

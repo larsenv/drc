@@ -34,6 +34,23 @@ function renderTemplate (renderType, body, expiry) {
     throw new Error(`Invalid render type "${renderType}"`);
   }
 
+  // Add detailed debugging for AI template
+  if (renderType === 'ai' && body.responses) {
+    console.log(`renderTemplate for AI: ${body.responses.length} responses`);
+    console.log(`Model list: ${JSON.stringify(body.responses.map(r => r.model))}`);
+
+    // Log each response details
+    body.responses.forEach((response, idx) => {
+      console.log(`Response #${idx + 1} - Provider: ${response.provider}, Model: ${response.model}, Response length: ${response.response?.length || 0}`);
+    });
+
+    // Add index to each response if not already present
+    body.responses = body.responses.map((r, idx) => ({
+      ...r,
+      responseIndex: r.responseIndex || idx + 1
+    }));
+  }
+
   if (body.elements) {
     // this shouldn't be here! probably...
     body.elements.forEach((ele) => {
@@ -41,6 +58,17 @@ function renderTemplate (renderType, body, expiry) {
         ele.timestampString = new Date(ele.timestamp).toDRCString();
       }
     });
+  }
+
+  // Add special fields for liveLogs template
+  if (renderType === 'liveLogs' && body.daemon) {
+    // Add a boolean flag for all daemons view - now supporting both 'all' and 'combined' daemon names
+    body.daemon_all = body.daemon === 'all' || body.daemon === 'combined';
+
+    // Add the daemons list to the template if it's provided
+    if (Array.isArray(body.daemons) && body.daemons.length > 0) {
+      body.daemon_list = body.daemons.join(', ');
+    }
   }
 
   const renderObj = {
