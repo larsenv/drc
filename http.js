@@ -124,7 +124,7 @@ function mkdirSyncIgnoreExist (dirPath) {
   }
 }
 
-async function renderAndCache (handler) {
+async function renderAndCache (handler, templateParam) {
   const { parsed: { data: { name, renderType } } } = handler;
   const type = ['http', 'get-req', name].join(':');
 
@@ -133,7 +133,14 @@ async function renderAndCache (handler) {
   await scopedRedisClient((reqPubClient, PREFIX) =>
     reqPubClient.publish(PREFIX, JSON.stringify({ type })));
   // ...(await handler.promise) waits for it to arrive
-  const { body, renderObj } = renderTemplate(renderType, (await handler.promise), handler.exp);
+
+  // Check for template query parameter to override default digest template
+  let effectiveRenderType = renderType;
+  if (templateParam === 'plain' && renderType === 'digest') {
+    effectiveRenderType = 'digest-plain';
+  }
+
+  const { body, renderObj } = renderTemplate(effectiveRenderType, (await handler.promise), handler.exp);
   renderCache[name] = { renderType, renderObj };
 
   return body;
@@ -246,7 +253,13 @@ redisListener.subscribe(PREFIX, (err) => {
 
     if (renderCache[req.params.id]) {
       console.debug('using cached render obj for', req.params.id);
-      const { renderType, renderObj } = renderCache[req.params.id];
+      let { renderType, renderObj } = renderCache[req.params.id];
+
+      // Check for template query parameter to override default digest template
+      if (req.query.template === 'plain' && renderType === 'digest') {
+        renderType = 'digest-plain';
+      }
+
       res.type('text/html; charset=utf-8').send(mustache.render(getTemplates()[renderType](), renderObj));
       return;
     }
@@ -254,7 +267,7 @@ redisListener.subscribe(PREFIX, (err) => {
     try {
       const handler = registered.get[req.params.id];
       res.type('text/html; charset=utf-8');
-      res.send(await renderAndCache(handler));
+      res.send(await renderAndCache(handler, req.query.template));
     } catch (err) {
       console.error(err);
       res.redirect(config.http.rootRedirectUrl);

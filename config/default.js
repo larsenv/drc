@@ -262,10 +262,10 @@ const _config = {
     temperature: 0.7,
     maxTokens: 4000,
     defaultModels: [
-      'google/gemini-2.5-flash-preview',
+      'google/gemini-2.5-pro',
       'deepseek/deepseek-chat-v3-0324:free',
       'qwen/qwen3-235b-a22b:free',
-      'anthropic/claude-sonnet-4',
+      'anthropic/claude-sonnet-4'
     ],
     viaHTML: 'the <a href="https://openrouter.ai/docs" target="_blank">OpenRouter API</a>'
   },

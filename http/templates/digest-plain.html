@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>
+    {{#extra.summarizeOnly}}
+    Summary of activity from {{ network }}
+    {{/extra.summarizeOnly}}
+    {{^extra.summarizeOnly}}
+    {{ elements.length }}-message digest - {{ network }} - DiscordRC
+    {{/extra.summarizeOnly}}
+  </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+  <h3>
+    {{#extra.summarizeOnly}}
+    Summary of activity from {{ network }}
+    {{/extra.summarizeOnly}}
+    {{^extra.summarizeOnly}}
+    {{ elements.length }} messages in this digest from {{ network }}
+    {{/extra.summarizeOnly}}
+  </h3>
+
+  {{#extra.minutes}}
+  <h4>From the last {{extra.minutes}} minutes</h4>
+  {{/extra.minutes}}
+
+  {{ #extra.channelSummaries }}
+  <h3>Channel Summaries</h3>
+
+  <table border="1">
+    <tr>
+      <th>Channel</th>
+      <th>Summary</th>
+    </tr>
+    {{#channels}}
+    <tr>
+      <td>
+        {{channel}}
+        {{#durationSec}}
+        <br><small>
+          {{durationSec}}s
+          {{#messageCount}}
+          &middot;
+            {{#messagesReduced}}
+              {{finalMessageCount}}/{{messageCount}} msgs ({{reductionPercent}}% reduced)
+            {{/messagesReduced}}
+            {{^messagesReduced}}
+              {{messageCount}} msgs
+            {{/messagesReduced}}
+          {{/messageCount}}
+          {{#retryCount}}
+          &middot; {{retryCount}} {{#hasError}}failed {{/hasError}}retries
+          {{/retryCount}}
+          {{#rateLimitRetries}}
+          &middot; {{rateLimitRetries}} rate-limit
+          {{/rateLimitRetries}}
+        </small>
+        {{/durationSec}}
+      </td>
+      <td>{{summary}}</td>
+    </tr>
+    {{/channels}}
+  </table>
+  {{ /extra.channelSummaries }}
+
+  {{ ^extra.summarizeOnly }}
+
+  <hr>
+
+  {{ #elements }}
+  <p>
+    [<strong>{{ timestampString }}</strong>] {{ data.target }} &lt;<em>{{ data.nick }}</em>&gt;
+    {{ data.message }}
+  </p>
+  {{ /elements }}
+
+  {{ #extra.sentiments }}
+  <hr>
+  <h3>Sentiment Analysis</h3>
+
+  <h4>Sentiment by Channel</h4>
+  <table border="1">
+    <tr>
+      <th>Channel</th>
+      <th>Score</th>
+      <th>Comparative</th>
+      <th>Message Count</th>
+    </tr>
+    {{ #perChan }}
+    <tr>
+      <td>{{ key }}</td>
+      <td>{{ value.score }}</td>
+      <td>{{ value.comparative }}</td>
+      <td>{{ value.count }}</td>
+    </tr>
+    {{ /perChan }}
+  </table>
+
+  <h4>Sentiment by Nickname</h4>
+  <table border="1">
+    <tr>
+      <th>Nickname</th>
+      <th>Score</th>
+      <th>Comparative</th>
+      <th>Message Count</th>
+    </tr>
+    {{ #perNick }}
+    <tr>
+      <td>{{ key }}</td>
+      <td>{{ value.score }}</td>
+      <td>{{ value.comparative }}</td>
+      <td>{{ value.count }}</td>
+    </tr>
+    {{ /perNick }}
+  </table>
+  {{ /extra.sentiments }}
+  {{ /extra.summarizeOnly }}
+
+  <hr>
+  <p>
+    <small>
+      This document was generated at {{ captureTimestamp }} ({{ timezone }})
+      by <a href="https://discordrc.com">{{ NAME }}-v{{ VERSION }}</a>
+      {{#documentExpiresAt}}
+      &amp; will self-destruct in <strong id="countdown-timer">calculating...</strong>
+      <span id="document-expires-at" style="display: none;">{{ documentExpiresAt }}</span>
+      <span id="document-expires-unix" style="display: none;">{{ documentExpiresAtUnix }}</span>
+      <script src="/js/countdownTimer.js"></script>
+      {{/documentExpiresAt}}
+    </small>
+  </p>
+</body>
+</html>
