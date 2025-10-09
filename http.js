@@ -37,8 +37,6 @@ const registered = {
   get: {}
 };
 
-const renderCache = {};
-
 const linter = new ESLint({
   useEslintrc: false,
   overrideConfig: {
@@ -125,7 +123,7 @@ function mkdirSyncIgnoreExist (dirPath) {
 }
 
 async function renderAndCache (handler, templateParam) {
-  const { parsed: { data: { name, renderType } } } = handler;
+  const { parsed: { data: { name, renderType, options } } } = handler;
   const type = ['http', 'get-req', name].join(':');
 
   // the 'get-req' message informs the creator of this endpoint that the
@@ -134,14 +132,42 @@ async function renderAndCache (handler, templateParam) {
     reqPubClient.publish(PREFIX, JSON.stringify({ type })));
   // ...(await handler.promise) waits for it to arrive
 
-  // Check for template query parameter to override default digest template
+  // Determine effective render type
+  // Priority: 1) query param template, 2) options.template (default), 3) renderType
   let effectiveRenderType = renderType;
-  if (templateParam === 'plain' && renderType === 'digest') {
-    effectiveRenderType = 'digest-plain';
+  const defaultTemplate = options?.template;
+
+  if (templateParam && renderType === 'digest') {
+    const candidateTemplate = `digest-${templateParam}`;
+    templatesLoad();
+    const availableTemplates = getTemplates();
+    if (availableTemplates && availableTemplates[candidateTemplate]) {
+      effectiveRenderType = candidateTemplate;
+    }
+  } else if (defaultTemplate && renderType === 'digest') {
+    const candidateTemplate = `digest-${defaultTemplate}`;
+    templatesLoad();
+    const availableTemplates = getTemplates();
+    if (availableTemplates && availableTemplates[candidateTemplate]) {
+      effectiveRenderType = candidateTemplate;
+    }
   }
 
   const { body, renderObj } = renderTemplate(effectiveRenderType, (await handler.promise), handler.exp);
-  renderCache[name] = { renderType, renderObj };
+
+  // Store in Redis with expiry time
+  const cacheData = { renderType, renderObj, defaultTemplate, exp: handler.exp };
+  await scopedRedisClient(async (client, PREFIX) => {
+    const cacheKey = `${PREFIX}:renderCache:${name}`;
+    await client.set(cacheKey, JSON.stringify(cacheData));
+
+    if (handler.exp) {
+      const ttlMs = handler.exp - Date.now();
+      if (ttlMs > 0) {
+        await client.pexpire(cacheKey, ttlMs);
+      }
+    }
+  });
 
   return body;
 }
@@ -247,21 +273,58 @@ redisListener.subscribe(PREFIX, (err) => {
   }
 
   app.get('/:id', async (req, res) => {
-    if (checkForExpiry(req)) {
-      return res.redirect(config.http.rootRedirectUrl);
+    // Check Redis cache
+    let cacheEntry;
+    try {
+      cacheEntry = await scopedRedisClient(async (client, PREFIX) => {
+        const cacheKey = `${PREFIX}:renderCache:${req.params.id}`;
+        const cached = await client.get(cacheKey);
+        return cached ? JSON.parse(cached) : null;
+      });
+    } catch (err) {
+      console.error('Error retrieving from Redis cache:', err);
     }
 
-    if (renderCache[req.params.id]) {
-      console.debug('using cached render obj for', req.params.id);
-      let { renderType, renderObj } = renderCache[req.params.id];
+    // If we have a cached render, check expiry and serve it
+    if (cacheEntry) {
+      // Check if expired (belt-and-suspenders with Redis TTL)
+      if (cacheEntry.exp && Number(new Date()) > cacheEntry.exp) {
+        console.debug('cached document expired!', req.params.id);
+        // Delete from Redis
+        await scopedRedisClient(async (client, PREFIX) => {
+          await client.del(`${PREFIX}:renderCache:${req.params.id}`);
+        });
+        return res.redirect(config.http.rootRedirectUrl);
+      }
 
-      // Check for template query parameter to override default digest template
-      if (req.query.template === 'plain' && renderType === 'digest') {
-        renderType = 'digest-plain';
+      console.debug('using Redis cached render obj for', req.params.id);
+      let { renderType, renderObj, defaultTemplate } = cacheEntry;
+
+      // Determine effective render type
+      // Priority: 1) query param template, 2) defaultTemplate, 3) renderType
+      if (req.query.template && renderType === 'digest') {
+        const candidateTemplate = `digest-${req.query.template}`;
+        templatesLoad();
+        const availableTemplates = getTemplates();
+        if (availableTemplates && availableTemplates[candidateTemplate]) {
+          renderType = candidateTemplate;
+        }
+      } else if (!req.query.template && defaultTemplate && renderType === 'digest') {
+        const candidateTemplate = `digest-${defaultTemplate}`;
+        templatesLoad();
+        const availableTemplates = getTemplates();
+        if (availableTemplates && availableTemplates[candidateTemplate]) {
+          renderType = candidateTemplate;
+        }
       }
 
       res.type('text/html; charset=utf-8').send(mustache.render(getTemplates()[renderType](), renderObj));
       return;
+    }
+
+    // No cached render, check for handler and expiry
+    if (checkForExpiry(req)) {
+      return res.redirect(config.http.rootRedirectUrl);
     }
 
     try {
@@ -650,7 +713,6 @@ redisListener.subscribe(PREFIX, (err) => {
           }
 
           const { name, options } = parsed.data;
-          const exp = expiryFromOptions(options);
 
           let rr;
           const promise = new Promise((resolve, reject) => {
@@ -663,16 +725,6 @@ redisListener.subscribe(PREFIX, (err) => {
             promise,
             ...rr
           };
-
-          // force immediate render if no expiry to generate the static file
-          if (!exp) {
-            const cachePath = path.join(config.http.staticDir, name + '.html');
-            renderAndCache(registered.get[name])
-              .then((renderedBody) =>
-                fs.promises.writeFile(cachePath, renderedBody))
-              .then(() => console.log(`Persisted unexpiring ${cachePath}`))
-              .catch((err) => console.log('renderAndCache failed', err));
-          }
 
           if (parsed.data.allowPut) {
             PutAllowedIds[name] = true; // clean this up on expiry of `name` (id)!

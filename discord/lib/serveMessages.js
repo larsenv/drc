@@ -89,7 +89,7 @@ async function serveMessages (context, data, opts = {}) {
     .setDescription(fqUrlFromPath(name));
 
   if (options.ttl === -1) {
-    embed.addField('Forever URL', fqUrlFromPath(`static/${name}.html`));
+    embed.addField('Persistence', 'Permanent (stored in Redis)');
   } else {
     const ttlSecs = options.ttl ? options.ttl * 60 : config.http.ttlSecs;
     embed.addField('Expires', `${ttlSecs / 60} minutes`);

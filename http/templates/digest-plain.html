@@ -70,10 +70,9 @@
   <hr>
 
   {{ #elements }}
-  <p>
     [<strong>{{ timestampString }}</strong>] {{ data.target }} &lt;<em>{{ data.nick }}</em>&gt;
     {{ data.message }}
-  </p>
+    <br/>
   {{ /elements }}
 
   {{ #extra.sentiments }}

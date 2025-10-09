@@ -172,6 +172,7 @@ f.__drcHelp = () => {
       ['--orKeys', 'Comma-seperated list of the search keys (all of the above) to OR together in the query', false],
       ['--everything', 'Include all sources; default is just channels', false],
       ['--distinct', 'Apply DISTINCT to the search', false],
+      ['--template', 'Default template to use for digest rendering (e.g., "modern", "plain"). Can be overridden with ?template= query param', true],
       ['--summarizeOnly', 'When used with --serve for digest, renders only channel summaries and sentiment analysis without showing individual messages', false],
       ['--excludeChannels', 'Comma-separated list of channel names (without # prefix) to exclude from channel summaries', true]
     ]
