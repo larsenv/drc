@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>
+    {{#extra.summarizeOnly}}
+    Summary of activity from {{ network }}
+    {{/extra.summarizeOnly}}
+    {{^extra.summarizeOnly}}
+    {{ elements.length }}-message digest - {{ network }} - DiscordRC
+    {{/extra.summarizeOnly}}
+  </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style type="text/css">
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #ffffff;
+      --text: #000000;
+      --text-light: #666666;
+      --text-lighter: #999999;
+      --border: #e0e0e0;
+      --accent: #000000;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      font-size: 15px;
+      padding: 2rem 1rem;
+      min-height: 100vh;
+      font-weight: 300;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 4rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.03em;
+    }
+
+    .subtitle {
+      font-size: 0.95rem;
+      color: var(--text-light);
+      font-weight: 400;
+    }
+
+    .network-tag {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .section-header {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 3rem 0 1.5rem;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+
+    .card {
+      margin-bottom: 2rem;
+      padding: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .card:hover {
+      opacity: 0.8;
+    }
+
+    .message-card {
+      padding-left: 1rem;
+      border-left: 1px solid var(--border);
+    }
+
+    .message-card:hover {
+      border-left-color: var(--accent);
+    }
+
+    .message-header {
+      margin-bottom: 0.5rem;
+    }
+
+    .message-meta {
+      display: flex;
+      gap: 1rem;
+      align-items: baseline;
+      flex-wrap: wrap;
+      font-size: 0.85rem;
+      color: var(--text-lighter);
+    }
+
+    .timestamp {
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .timestamp:hover {
+      color: var(--text);
+    }
+
+    .channel-tag {
+      color: var(--text-light);
+    }
+
+    .nickname {
+      color: var(--text);
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .nickname:hover {
+      color: var(--text-light);
+    }
+
+    .message-body {
+      color: var(--text);
+      cursor: pointer;
+      word-break: break-word;
+      font-size: 1rem;
+      line-height: 1.7;
+    }
+
+    .user-info {
+      display: none;
+      margin-top: 0.75rem;
+      padding: 1rem 0 0 0;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--text-light);
+    }
+
+    .user-info.active {
+      display: block;
+    }
+
+    .user-info div {
+      margin-bottom: 0.25rem;
+    }
+
+    .user-info div:last-child {
+      margin-bottom: 0;
+    }
+
+    .toggle-btn {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: 2rem;
+      transition: all 0.2s ease;
+    }
+
+    .toggle-btn:hover {
+      background: var(--text);
+      color: var(--bg);
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+    }
+
+    .data-table th {
+      padding: 0.75rem 0;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+
+    .data-table td {
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .data-table tbody tr {
+      transition: opacity 0.2s;
+    }
+
+    .data-table tbody tr:hover {
+      opacity: 0.6;
+    }
+
+    .data-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .sentiment-cell {
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .sentimentScore-10, .boldSentimentScore-5 { color: #000; }
+    .sentimentScore-9, .boldSentimentScore-4 { color: #222; }
+    .sentimentScore-8, .boldSentimentScore-3 { color: #444; }
+    .sentimentScore-7, .boldSentimentScore-2 { color: #666; }
+    .sentimentScore-6, .boldSentimentScore-1 { color: #888; }
+    .sentimentScore-5, .boldSentimentScore-0, .boldSentimentScore0 { color: #999; }
+    .sentimentScore1, .boldSentimentScore1 { color: #888; }
+    .sentimentScore2, .boldSentimentScore2 { color: #666; }
+    .sentimentScore3, .boldSentimentScore3 { color: #444; }
+    .sentimentScore4, .boldSentimentScore4 { color: #222; }
+    .sentimentScore5, .boldSentimentScore5 { color: #000; }
+
+    .summary-meta {
+      font-size: 0.75rem;
+      color: var(--text-lighter);
+      margin-top: 0.25rem;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 3rem 1rem 0;
+      color: var(--text-lighter);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border);
+      margin-top: 4rem;
+    }
+
+    .footer a {
+      color: var(--text);
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+
+    .footer a:hover {
+      opacity: 0.6;
+    }
+
+    #countdown-timer {
+      color: var(--text);
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 1.5rem 1rem;
+      }
+
+      .header {
+        margin-bottom: 3rem;
+      }
+
+      .header h1 {
+        font-size: 1.5rem;
+      }
+
+      .card {
+        margin-bottom: 1.5rem;
+      }
+
+      .message-meta {
+        font-size: 0.8rem;
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #000000;
+        --text: #ffffff;
+        --text-light: #999999;
+        --text-lighter: #666666;
+        --border: #333333;
+        --accent: #ffffff;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>
+        {{#extra.summarizeOnly}}Network Summary{{/extra.summarizeOnly}}
+        {{^extra.summarizeOnly}}Message Digest{{/extra.summarizeOnly}}
+      </h1>
+      <div class="subtitle">
+        {{#extra.summarizeOnly}}
+        Activity from <span class="network-tag">{{ network }}</span>
+        {{/extra.summarizeOnly}}
+        {{^extra.summarizeOnly}}
+        {{ elements.length }} messages from <span class="network-tag">{{ network }}</span>
+        {{/extra.summarizeOnly}}
+        {{#extra.minutes}} · Last {{extra.minutes}} minutes{{/extra.minutes}}
+      </div>
+    </div>
+
+    {{ #extra.channelSummaries }}
+    <h2 class="section-header">Channel Summaries</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Channel</th>
+          <th>Summary</th>
+        </tr>
+      </thead>
+      <tbody>
+      {{#channels}}
+        <tr>
+          <td style="white-space: nowrap; width: 150px;">
+            {{channel}}
+            {{#durationSec}}<div class="summary-meta">{{durationSec}}s{{#messageCount}} · {{messageCount}} msgs{{/messageCount}}</div>{{/durationSec}}
+          </td>
+          <td>{{summary}}</td>
+        </tr>
+      {{/channels}}
+      </tbody>
+    </table>
+    {{ /extra.channelSummaries }}
+
+    {{ ^extra.summarizeOnly }}
+    <button class="toggle-btn" onclick="toggleAllUserDisplays()">Toggle Details</button>
+
+    <div class="digest-container">
+      {{ #elements }}
+      <div class="card message-card">
+        <div class="message-header">
+          <div class="message-meta">
+            <span class="timestamp" onclick="this.textContent='{{ timestamp }}';">{{ timestampString }}</span>
+            <span class="channel-tag">{{ data.target }}</span>
+            <span class="nickname userDisplay-trigger" onclick="toggleUserDisplay(this);">{{ data.nick }}</span>
+          </div>
+        </div>
+        <div class="message-body userDisplay-trigger" onclick="toggleUserDisplay(this);">{{ data.message }}</div>
+        <div class="user-info userDisplay-info">
+          <div>{{ data.ident }}@{{ data.hostname }}</div>
+          <div>Sentiment: {{ data.sentiment.score }} / {{ data.sentiment.comparative }}</div>
+        </div>
+      </div>
+      {{ /elements }}
+    </div>
+
+    {{ #extra.sentiments }}
+    <h2 class="section-header">Sentiment Analysis</h2>
+    <table class="data-table">
+      <thead><tr><th>Channel</th><th>Score</th><th>Comparative</th><th>Messages</th></tr></thead>
+      <tbody>
+      {{ #perChan }}
+        <tr>
+          <td>{{ key }}</td>
+          <td class="sentiment-cell boldSentimentScore{{ value.scoreRound }}">{{ value.score }}</td>
+          <td class="sentiment-cell boldSentimentScore{{ value.comparativeRound }}">{{ value.comparative }}</td>
+          <td>{{ value.count }}</td>
+        </tr>
+      {{ /perChan }}
+      </tbody>
+    </table>
+    <table class="data-table">
+      <thead><tr><th>Nickname</th><th>Score</th><th>Comparative</th><th>Messages</th></tr></thead>
+      <tbody>
+      {{ #perNick }}
+        <tr>
+          <td>{{ key }}</td>
+          <td class="sentiment-cell boldSentimentScore{{ value.scoreRound }}">{{ value.score }}</td>
+          <td class="sentiment-cell boldSentimentScore{{ value.comparativeRound }}">{{ value.comparative }}</td>
+          <td>{{ value.count }}</td>
+        </tr>
+      {{ /perNick }}
+      </tbody>
+    </table>
+    {{ /extra.sentiments }}
+    {{ /extra.summarizeOnly }}
+
+    <div class="footer">
+      <p>{{ captureTimestamp }} ({{ timezone }}) · <a href="https://discordrc.com">{{ NAME }}-v{{ VERSION }}</a>
+      {{#documentExpiresAt}} · <span id="countdown-timer">calculating...</span>
+      <span id="document-expires-at" style="display: none;">{{ documentExpiresAt }}</span>
+      <span id="document-expires-unix" style="display: none;">{{ documentExpiresAtUnix }}</span>
+      <script src="/js/countdownTimer.js"></script>{{/documentExpiresAt}}</p>
+    </div>
+  </div>
+
+  <script defer>
+    function toggleUserDisplay(el) {
+      el.closest('.message-card').querySelector('.userDisplay-info').classList.toggle('active');
+    }
+    function toggleAllUserDisplays() {
+      const infos = document.querySelectorAll('.userDisplay-info');
+      const anyVisible = Array.from(infos).some(i => i.classList.contains('active'));
+      infos.forEach(i => anyVisible ? i.classList.remove('active') : i.classList.add('active'));
+    }
+  </script>
+</body>
+</html>

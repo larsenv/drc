@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>
+    {{#extra.summarizeOnly}}
+    Summary of activity from {{ network }}
+    {{/extra.summarizeOnly}}
+    {{^extra.summarizeOnly}}
+    {{ elements.length }}-message digest - {{ network }} - DiscordRC
+    {{/extra.summarizeOnly}}
+  </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=Lora:ital,wght@0,400;0,500;1,400&family=Source+Serif+4:wght@400;500;600&display=swap" rel="stylesheet">
+  <style type="text/css">
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --paper: #faf8f3;
+      --paper-dark: #f5f2ea;
+      --ink-primary: #2c2416;
+      --ink-secondary: #5a4f3f;
+      --ink-muted: #8f8577;
+      --accent: #9b6b4f;
+      --accent-light: #c89676;
+      --shadow: rgba(44, 36, 22, 0.1);
+    }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background: #e8e5dd;
+      color: var(--ink-primary);
+      line-height: 1.8;
+      font-size: 16px;
+      padding: 3rem 1.5rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--paper);
+      padding: 3rem;
+      box-shadow: 0 4px 20px var(--shadow), 0 0 2px rgba(44, 36, 22, 0.05);
+      border: 1px solid rgba(44, 36, 22, 0.1);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 3rem;
+      padding-bottom: 2rem;
+      border-bottom: 2px solid var(--accent);
+      position: relative;
+    }
+
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100px;
+      height: 2px;
+      background: var(--accent-light);
+    }
+
+    .header h1 {
+      font-family: 'Source Serif 4', serif;
+      font-size: 2.5rem;
+      font-weight: 600;
+      color: var(--ink-primary);
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      font-family: 'Crimson Pro', serif;
+      font-size: 1.1rem;
+      color: var(--ink-secondary);
+      font-style: italic;
+    }
+
+    .network-tag {
+      color: var(--accent);
+      font-family: 'Crimson Pro', serif;
+      font-weight: 600;
+      font-style: normal;
+      background: rgba(155, 107, 79, 0.1);
+      padding: 0.2rem 0.6rem;
+      border-radius: 3px;
+      border-bottom: 2px solid var(--accent-light);
+    }
+
+    .section-header {
+      font-family: 'Source Serif 4', serif;
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin: 3rem 0 1.5rem;
+      color: var(--accent);
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--accent-light);
+    }
+
+    .card {
+      background: var(--paper-dark);
+      border: 1px solid rgba(44, 36, 22, 0.1);
+      border-radius: 4px;
+      margin-bottom: 1.5rem;
+      padding: 1.5rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(44, 36, 22, 0.05);
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 16px rgba(44, 36, 22, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .message-card {
+      border-left: 4px solid var(--accent-light);
+    }
+
+    .message-header {
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px dotted var(--ink-muted);
+    }
+
+    .message-meta {
+      display: flex;
+      gap: 1.25rem;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: 0.9rem;
+      font-family: 'Crimson Pro', serif;
+    }
+
+    .timestamp {
+      color: var(--ink-muted);
+      cursor: pointer;
+      transition: color 0.2s;
+      font-style: italic;
+    }
+
+    .timestamp:hover {
+      color: var(--accent);
+    }
+
+    .channel-tag {
+      color: var(--accent);
+      font-weight: 600;
+      background: rgba(155, 107, 79, 0.08);
+      padding: 0.2rem 0.5rem;
+      border-radius: 3px;
+    }
+
+    .nickname {
+      color: var(--ink-secondary);
+      font-weight: 600;
+      cursor: pointer;
+      background: rgba(44, 36, 22, 0.05);
+      padding: 0.2rem 0.5rem;
+      border-radius: 3px;
+      transition: all 0.2s;
+    }
+
+    .nickname:hover {
+      background: rgba(155, 107, 79, 0.15);
+      color: var(--accent);
+    }
+
+    .message-body {
+      color: var(--ink-primary);
+      cursor: pointer;
+      word-break: break-word;
+      font-size: 1rem;
+      line-height: 1.9;
+    }
+
+    .message-body:hover {
+      color: var(--ink-secondary);
+    }
+
+    .user-info {
+      display: none;
+      margin-top: 1rem;
+      padding: 1rem;
+      background: var(--paper);
+      border-left: 3px solid var(--accent);
+      border-radius: 3px;
+      font-size: 0.9rem;
+      color: var(--ink-secondary);
+      font-family: 'Crimson Pro', serif;
+    }
+
+    .user-info.active {
+      display: block;
+    }
+
+    .user-info div {
+      margin-bottom: 0.5rem;
+    }
+
+    .user-info div:last-child {
+      margin-bottom: 0;
+    }
+
+    .user-info strong {
+      color: var(--accent);
+    }
+
+    .toggle-btn {
+      font-family: 'Crimson Pro', serif;
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background: var(--accent);
+      color: var(--paper);
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 2rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(155, 107, 79, 0.3);
+    }
+
+    .toggle-btn:hover {
+      background: var(--accent-light);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(155, 107, 79, 0.4);
+    }
+
+    .toggle-btn:active {
+      transform: translateY(0);
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      background: var(--paper-dark);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid rgba(44, 36, 22, 0.1);
+      box-shadow: 0 2px 8px rgba(44, 36, 22, 0.05);
+    }
+
+    .data-table th {
+      font-family: 'Source Serif 4', serif;
+      padding: 1rem;
+      text-align: left;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--paper);
+      border-bottom: 2px solid var(--accent-light);
+    }
+
+    .data-table td {
+      padding: 1rem;
+      border-bottom: 1px solid rgba(44, 36, 22, 0.08);
+      color: var(--ink-primary);
+    }
+
+    .data-table tbody tr {
+      transition: background 0.2s;
+    }
+
+    .data-table tbody tr:hover {
+      background: var(--paper);
+    }
+
+    .data-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .mono {
+      font-family: 'Crimson Pro', monospace;
+    }
+
+    .sentiment-cell {
+      text-align: center;
+      font-weight: 600;
+      padding: 0.75rem !important;
+      border-radius: 3px;
+      font-family: 'Crimson Pro', serif;
+    }
+
+    .sentimentScore-10, .boldSentimentScore-5 { 
+      background: rgba(180, 50, 50, 0.15);
+      color: #a03030;
+    }
+    .sentimentScore-9, .boldSentimentScore-4 { 
+      background: rgba(180, 50, 50, 0.1);
+      color: #a03030;
+    }
+    .sentimentScore-8, .boldSentimentScore-3 { 
+      background: rgba(200, 100, 50, 0.1);
+      color: #b06030;
+    }
+    .sentimentScore-7, .boldSentimentScore-2 { 
+      background: rgba(200, 100, 50, 0.08);
+      color: #b06030;
+    }
+    .sentimentScore-6, .boldSentimentScore-1 { 
+      background: rgba(200, 150, 50, 0.1);
+      color: #a08040;
+    }
+    .sentimentScore-5, .boldSentimentScore-0, .boldSentimentScore0 { 
+      background: transparent;
+      color: var(--ink-secondary);
+    }
+    .sentimentScore1, .boldSentimentScore1 { 
+      background: rgba(100, 140, 80, 0.08);
+      color: #608050;
+    }
+    .sentimentScore2, .boldSentimentScore2 { 
+      background: rgba(100, 140, 80, 0.1);
+      color: #608050;
+    }
+    .sentimentScore3, .boldSentimentScore3 { 
+      background: rgba(80, 130, 100, 0.1);
+      color: #507060;
+    }
+    .sentimentScore4, .boldSentimentScore4 { 
+      background: rgba(80, 130, 100, 0.12);
+      color: #507060;
+    }
+    .sentimentScore5, .boldSentimentScore5 { 
+      background: rgba(80, 130, 100, 0.15);
+      color: #507060;
+    }
+
+    .summary-meta {
+      font-size: 0.8rem;
+      color: var(--ink-muted);
+      margin-top: 0.25rem;
+      font-style: italic;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 2rem 1rem 0;
+      color: var(--ink-muted);
+      font-size: 0.9rem;
+      border-top: 1px solid var(--accent-light);
+      margin-top: 3rem;
+      font-family: 'Crimson Pro', serif;
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px dotted var(--accent);
+      transition: all 0.2s;
+    }
+
+    .footer a:hover {
+      color: var(--accent-light);
+      border-bottom-style: solid;
+    }
+
+    #countdown-timer {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 1.5rem 1rem;
+      }
+
+      .container {
+        padding: 2rem 1.5rem;
+      }
+
+      .header h1 {
+        font-size: 2rem;
+      }
+
+      .card {
+        padding: 1rem;
+      }
+
+      .message-meta {
+        font-size: 0.85rem;
+      }
+    }
+
+    /* Subtle paper texture */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100" height="100" filter="url(%23noise)" opacity="0.03"/></svg>');
+      pointer-events: none;
+      z-index: -1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>
+        {{#extra.summarizeOnly}}Network Summary{{/extra.summarizeOnly}}
+        {{^extra.summarizeOnly}}Message Digest{{/extra.summarizeOnly}}
+      </h1>
+      <div class="subtitle">
+        {{#extra.summarizeOnly}}
+        Activity from <span class="network-tag">{{ network }}</span>
+        {{/extra.summarizeOnly}}
+        {{^extra.summarizeOnly}}
+        {{ elements.length }} messages from <span class="network-tag">{{ network }}</span>
+        {{/extra.summarizeOnly}}
+        {{#extra.minutes}} · Last {{extra.minutes}} minutes{{/extra.minutes}}
+      </div>
+    </div>
+
+    {{ #extra.channelSummaries }}
+    <h2 class="section-header">Channel Summaries</h2>
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Channel</th>
+            <th>Summary</th>
+          </tr>
+        </thead>
+        <tbody>
+        {{#channels}}
+          <tr>
+            <td class="mono" style="white-space: nowrap;">
+              {{channel}}
+              {{#durationSec}}<div class="summary-meta">{{durationSec}}s{{#messageCount}} · {{messageCount}} msgs{{/messageCount}}</div>{{/durationSec}}
+            </td>
+            <td>{{summary}}</td>
+          </tr>
+        {{/channels}}
+        </tbody>
+      </table>
+    </div>
+    {{ /extra.channelSummaries }}
+
+    {{ ^extra.summarizeOnly }}
+    <button class="toggle-btn" onclick="toggleAllUserDisplays()">Toggle All Details</button>
+
+    <div class="digest-container">
+      {{ #elements }}
+      <div class="card message-card">
+        <div class="message-header">
+          <div class="message-meta">
+            <span class="timestamp" onclick="this.textContent='{{ timestamp }}';">{{ timestampString }}</span>
+            <span class="channel-tag">{{ data.target }}</span>
+            <span class="nickname userDisplay-trigger" onclick="toggleUserDisplay(this);">{{ data.nick }}</span>
+          </div>
+        </div>
+        <div class="message-body userDisplay-trigger" onclick="toggleUserDisplay(this);">{{ data.message }}</div>
+        <div class="user-info userDisplay-info">
+          <div><strong>Identity:</strong> {{ data.ident }}@{{ data.hostname }}</div>
+          <div><strong>Sentiment:</strong> {{ data.sentiment.score }} / {{ data.sentiment.comparative }}</div>
+        </div>
+      </div>
+      {{ /elements }}
+    </div>
+
+    {{ #extra.sentiments }}
+    <h2 class="section-header">Sentiment Analysis</h2>
+    <div class="card">
+      <table class="data-table">
+        <thead><tr><th>Channel</th><th>Score</th><th>Comparative</th><th>Messages</th></tr></thead>
+        <tbody>
+        {{ #perChan }}
+          <tr>
+            <td class="mono">{{ key }}</td>
+            <td class="sentiment-cell boldSentimentScore{{ value.scoreRound }}">{{ value.score }}</td>
+            <td class="sentiment-cell boldSentimentScore{{ value.comparativeRound }}">{{ value.comparative }}</td>
+            <td>{{ value.count }}</td>
+          </tr>
+        {{ /perChan }}
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <table class="data-table">
+        <thead><tr><th>Nickname</th><th>Score</th><th>Comparative</th><th>Messages</th></tr></thead>
+        <tbody>
+        {{ #perNick }}
+          <tr>
+            <td class="mono">{{ key }}</td>
+            <td class="sentiment-cell boldSentimentScore{{ value.scoreRound }}">{{ value.score }}</td>
+            <td class="sentiment-cell boldSentimentScore{{ value.comparativeRound }}">{{ value.comparative }}</td>
+            <td>{{ value.count }}</td>
+          </tr>
+        {{ /perNick }}
+        </tbody>
+      </table>
+    </div>
+    {{ /extra.sentiments }}
+    {{ /extra.summarizeOnly }}
+
+    <div class="footer">
+      <p>{{ captureTimestamp }} ({{ timezone }}) · <a href="https://discordrc.com">{{ NAME }}-v{{ VERSION }}</a>
+      {{#documentExpiresAt}} · <span id="countdown-timer">calculating...</span>
+      <span id="document-expires-at" style="display: none;">{{ documentExpiresAt }}</span>
+      <span id="document-expires-unix" style="display: none;">{{ documentExpiresAtUnix }}</span>
+      <script src="/js/countdownTimer.js"></script>{{/documentExpiresAt}}</p>
+    </div>
+  </div>
+
+  <script defer>
+    function toggleUserDisplay(el) {
+      el.closest('.message-card').querySelector('.userDisplay-info').classList.toggle('active');
+    }
+    function toggleAllUserDisplays() {
+      const infos = document.querySelectorAll('.userDisplay-info');
+      const anyVisible = Array.from(infos).some(i => i.classList.contains('active'));
+      infos.forEach(i => anyVisible ? i.classList.remove('active') : i.classList.add('active'));
+    }
+  </script>
+</body>
+</html>

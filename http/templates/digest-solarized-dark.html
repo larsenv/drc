@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>
+    {{#extra.summarizeOnly}}
+    Summary of activity from {{ network }}
+    {{/extra.summarizeOnly}}
+    {{^extra.summarizeOnly}}
+    {{ elements.length }}-message digest - {{ network }} - DiscordRC
+    {{/extra.summarizeOnly}}
+  </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+  <style type="text/css">
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      /* Solarized Dark */
+      --base03: #002b36;
+      --base02: #073642;
+      --base01: #586e75;
+      --base00: #657b83;
+      --base0: #839496;
+      --base1: #93a1a1;
+      --base2: #eee8d5;
+      --base3: #fdf6e3;
+      --yellow: #b58900;
+      --orange: #cb4b16;
+      --red: #dc322f;
+      --magenta: #d33682;
+      --violet: #6c71c4;
+      --blue: #268bd2;
+      --cyan: #2aa198;
+      --green: #859900;
+    }
+
+    body {
+      font-family: 'Source Sans 3', sans-serif;
+      background: var(--base03);
+      color: var(--base0);
+      line-height: 1.6;
+      font-size: 15px;
+      padding: 2rem 1rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding: 2rem;
+      background: var(--base02);
+      border-radius: 8px;
+      border-top: 4px solid var(--blue);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--base2);
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      font-size: 1rem;
+      color: var(--base1);
+      font-weight: 400;
+    }
+
+    .network-tag {
+      color: var(--cyan);
+      font-family: 'Source Code Pro', monospace;
+      font-weight: 500;
+      background: rgba(42, 161, 152, 0.15);
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      border: 1px solid rgba(42, 161, 152, 0.3);
+    }
+
+    .section-header {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin: 2rem 0 1rem;
+      color: var(--base2);
+      padding-left: 1rem;
+      border-left: 4px solid var(--blue);
+    }
+
+    .card {
+      background: var(--base02);
+      border: 1px solid var(--base01);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      padding: 1.25rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      border-color: var(--blue);
+    }
+
+    .message-card {
+      border-left: 3px solid var(--base01);
+    }
+
+    .message-card:hover {
+      border-left-color: var(--blue);
+    }
+
+    .message-header {
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--base01);
+    }
+
+    .message-meta {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: 0.9rem;
+    }
+
+    .timestamp {
+      font-family: 'Source Code Pro', monospace;
+      color: var(--base01);
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .timestamp:hover {
+      color: var(--blue);
+    }
+
+    .channel-tag {
+      font-family: 'Source Code Pro', monospace;
+      color: var(--orange);
+      font-weight: 500;
+      background: rgba(203, 75, 22, 0.15);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .nickname {
+      font-family: 'Source Code Pro', monospace;
+      color: var(--violet);
+      font-weight: 500;
+      cursor: pointer;
+      background: rgba(108, 113, 196, 0.15);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .nickname:hover {
+      background: rgba(108, 113, 196, 0.25);
+      color: var(--magenta);
+    }
+
+    .message-body {
+      color: var(--base0);
+      cursor: pointer;
+      word-break: break-word;
+      font-size: 1rem;
+      line-height: 1.7;
+    }
+
+    .message-body:hover {
+      color: var(--base1);
+    }
+
+    .user-info {
+      display: none;
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: var(--base03);
+      border-left: 3px solid var(--cyan);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: var(--base1);
+    }
+
+    .user-info.active {
+      display: block;
+    }
+
+    .user-info div {
+      margin-bottom: 0.5rem;
+    }
+
+    .user-info div:last-child {
+      margin-bottom: 0;
+    }
+
+    .toggle-btn {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background: var(--blue);
+      color: var(--base03);
+      border: none;
+      border-radius: 6px;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: 1.5rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 6px rgba(38, 139, 210, 0.4);
+    }
+
+    .toggle-btn:hover {
+      background: var(--cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(38, 139, 210, 0.5);
+    }
+
+    .toggle-btn:active {
+      transform: translateY(0);
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      background: var(--base02);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--base01);
+    }
+
+    .data-table th {
+      padding: 0.875rem;
+      text-align: left;
+      font-weight: 600;
+      color: var(--base2);
+      background: var(--base03);
+      border-bottom: 2px solid var(--base01);
+    }
+
+    .data-table td {
+      padding: 0.875rem;
+      border-bottom: 1px solid var(--base01);
+      color: var(--base0);
+    }
+
+    .data-table tbody tr {
+      transition: background 0.2s;
+    }
+
+    .data-table tbody tr:hover {
+      background: var(--base03);
+    }
+
+    .data-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .mono {
+      font-family: 'Source Code Pro', monospace;
+    }
+
+    .sentiment-cell {
+      text-align: center;
+      font-weight: 500;
+      padding: 0.5rem !important;
+      border-radius: 4px;
+    }
+
+    .sentimentScore-10, .boldSentimentScore-5 { 
+      background: rgba(220, 50, 47, 0.3);
+      color: var(--red);
+    }
+    .sentimentScore-9, .boldSentimentScore-4 { 
+      background: rgba(220, 50, 47, 0.2);
+      color: var(--red);
+    }
+    .sentimentScore-8, .boldSentimentScore-3 { 
+      background: rgba(203, 75, 22, 0.2);
+      color: var(--orange);
+    }
+    .sentimentScore-7, .boldSentimentScore-2 { 
+      background: rgba(203, 75, 22, 0.15);
+      color: var(--orange);
+    }
+    .sentimentScore-6, .boldSentimentScore-1 { 
+      background: rgba(181, 137, 0, 0.2);
+      color: var(--yellow);
+    }
+    .sentimentScore-5, .boldSentimentScore-0, .boldSentimentScore0 { 
+      background: transparent;
+      color: var(--base0);
+    }
+    .sentimentScore1, .boldSentimentScore1 { 
+      background: rgba(133, 153, 0, 0.15);
+      color: var(--green);
+    }
+    .sentimentScore2, .boldSentimentScore2 { 
+      background: rgba(133, 153, 0, 0.2);
+      color: var(--green);
+    }
+    .sentimentScore3, .boldSentimentScore3 { 
+      background: rgba(42, 161, 152, 0.2);
+      color: var(--cyan);
+    }
+    .sentimentScore4, .boldSentimentScore4 { 
+      background: rgba(42, 161, 152, 0.25);
+      color: var(--cyan);
+    }
+    .sentimentScore5, .boldSentimentScore5 { 
+      background: rgba(42, 161, 152, 0.3);
+      color: var(--cyan);
+    }
+
+    .summary-meta {
+      font-size: 0.75rem;
+      color: var(--base01);
+      margin-top: 0.25rem;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--base01);
+      font-size: 0.9rem;
+      border-top: 1px solid var(--base01);
+      margin-top: 3rem;
+    }
+
+    .footer a {
+      color: var(--blue);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer a:hover {
+      color: var(--cyan);
+    }
+
+    #countdown-timer {
+      color: var(--orange);
+      font-weight: 500;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem 0.5rem;
+      }
+
+      .header h1 {
+        font-size: 1.5rem;
+      }
+
+      .card {
+        padding: 1rem;
+      }
+
+      .message-meta {
+        font-size: 0.85rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>
+        {{#extra.summarizeOnly}}Network Summary{{/extra.summarizeOnly}}
+        {{^extra.summarizeOnly}}Message Digest{{/extra.summarizeOnly}}
+      </h1>
+      <div class="subtitle">
+        {{#extra.summarizeOnly}}
+        Activity from <span class="network-tag">{{ network }}</span>
+        {{/extra.summarizeOnly}}
+        {{^extra.summarizeOnly}}
+        {{ elements.length }} messages from <span class="network-tag">{{ network }}</span>
+        {{/extra.summarizeOnly}}
+        {{#extra.minutes}} · Last {{extra.minutes}} minutes{{/extra.minutes}}
+      </div>
+    </div>
+
+    {{ #extra.channelSummaries }}
+    <h2 class="section-header">Channel Summaries</h2>
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Channel</th>
+            <th>Summary</th>
+          </tr>
+        </thead>
+        <tbody>
+        {{#channels}}
+          <tr>
+            <td class="mono" style="white-space: nowrap;">
+              {{channel}}
+              {{#durationSec}}<div class="summary-meta">{{durationSec}}s{{#messageCount}} · {{messageCount}} msgs{{/messageCount}}</div>{{/durationSec}}
+            </td>
+            <td>{{summary}}</td>
+          </tr>
+        {{/channels}}
+        </tbody>
+      </table>
+    </div>
+    {{ /extra.channelSummaries }}
+
+    {{ ^extra.summarizeOnly }}
+    <button class="toggle-btn" onclick="toggleAllUserDisplays()">Toggle All Details</button>
+
+    <div class="digest-container">
+      {{ #elements }}
+      <div class="card message-card">
+        <div class="message-header">
+          <div class="message-meta">
+            <span class="timestamp" onclick="this.textContent='{{ timestamp }}';">{{ timestampString }}</span>
+            <span class="channel-tag">{{ data.target }}</span>
+            <span class="nickname userDisplay-trigger" onclick="toggleUserDisplay(this);">{{ data.nick }}</span>
+          </div>
+        </div>
+        <div class="message-body userDisplay-trigger" onclick="toggleUserDisplay(this);">{{ data.message }}</div>
+        <div class="user-info userDisplay-info">
+          <div><strong>Identity:</strong> {{ data.ident }}@{{ data.hostname }}</div>
+          <div><strong>Sentiment:</strong> {{ data.sentiment.score }} / {{ data.sentiment.comparative }}</div>
+        </div>
+      </div>
+      {{ /elements }}
+    </div>
+
+    {{ #extra.sentiments }}
+    <h2 class="section-header">Sentiment Analysis</h2>
+    <div class="card">
+      <table class="data-table">
+        <thead><tr><th>Channel</th><th>Score</th><th>Comparative</th><th>Messages</th></tr></thead>
+        <tbody>
+        {{ #perChan }}
+          <tr>
+            <td class="mono">{{ key }}</td>
+            <td class="sentiment-cell boldSentimentScore{{ value.scoreRound }}">{{ value.score }}</td>
+            <td class="sentiment-cell boldSentimentScore{{ value.comparativeRound }}">{{ value.comparative }}</td>
+            <td>{{ value.count }}</td>
+          </tr>
+        {{ /perChan }}
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <table class="data-table">
+        <thead><tr><th>Nickname</th><th>Score</th><th>Comparative</th><th>Messages</th></tr></thead>
+        <tbody>
+        {{ #perNick }}
+          <tr>
+            <td class="mono">{{ key }}</td>
+            <td class="sentiment-cell boldSentimentScore{{ value.scoreRound }}">{{ value.score }}</td>
+            <td class="sentiment-cell boldSentimentScore{{ value.comparativeRound }}">{{ value.comparative }}</td>
+            <td>{{ value.count }}</td>
+          </tr>
+        {{ /perNick }}
+        </tbody>
+      </table>
+    </div>
+    {{ /extra.sentiments }}
+    {{ /extra.summarizeOnly }}
+
+    <div class="footer">
+      <p>{{ captureTimestamp }} ({{ timezone }}) · <a href="https://discordrc.com">{{ NAME }}-v{{ VERSION }}</a>
+      {{#documentExpiresAt}} · <span id="countdown-timer">calculating...</span>
+      <span id="document-expires-at" style="display: none;">{{ documentExpiresAt }}</span>
+      <span id="document-expires-unix" style="display: none;">{{ documentExpiresAtUnix }}</span>
+      <script src="/js/countdownTimer.js"></script>{{/documentExpiresAt}}</p>
+    </div>
+  </div>
+
+  <script defer>
+    function toggleUserDisplay(el) {
+      el.closest('.message-card').querySelector('.userDisplay-info').classList.toggle('active');
+    }
+    function toggleAllUserDisplays() {
+      const infos = document.querySelectorAll('.userDisplay-info');
+      const anyVisible = Array.from(infos).some(i => i.classList.contains('active'));
+      infos.forEach(i => anyVisible ? i.classList.remove('active') : i.classList.add('active'));
+    }
+  </script>
+</body>
+</html>

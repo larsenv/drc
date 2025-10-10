@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>
+    {{#extra.summarizeOnly}}
+    Summary of activity from {{ network }}
+    {{/extra.summarizeOnly}}
+    {{^extra.summarizeOnly}}
+    {{ elements.length }}-message digest - {{ network }} - DiscordRC
+    {{/extra.summarizeOnly}}
+  </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style type="text/css">
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Comic Sans MS", "Trebuchet MS", Verdana, sans-serif;
+      background: #c0c0c0;
+      background-image: 
+        repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.05) 10px, rgba(255,255,255,.05) 20px);
+      color: #000000;
+      line-height: 1.5;
+      font-size: 14px;
+      padding: 10px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 3px ridge #808080;
+      padding: 0;
+    }
+
+    .header {
+      background: #000080;
+      background-image: linear-gradient(180deg, #0000ff 0%, #000080 100%);
+      color: #ffffff;
+      padding: 20px;
+      text-align: center;
+      border-bottom: 3px ridge #808080;
+      position: relative;
+    }
+
+    .header::before {
+      content: '★';
+      position: absolute;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 2rem;
+      color: #ffff00;
+      animation: blink 1s infinite;
+    }
+
+    .header::after {
+      content: '★';
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 2rem;
+      color: #ffff00;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 99% { opacity: 0; }
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: bold;
+      color: #ffff00;
+      text-shadow: 2px 2px #ff00ff, 4px 4px #00ffff;
+      margin-bottom: 10px;
+      letter-spacing: 2px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #00ffff;
+      font-weight: bold;
+    }
+
+    .network-tag {
+      color: #ffff00;
+      font-weight: bold;
+      background: #800080;
+      padding: 2px 8px;
+      border: 2px outset #ff00ff;
+    }
+
+    .content-area {
+      padding: 15px;
+      background: #ffffff;
+    }
+
+    .section-header {
+      font-size: 20px;
+      font-weight: bold;
+      color: #0000ff;
+      margin: 20px 0 10px;
+      padding: 8px;
+      background: #ffff00;
+      border: 3px ridge #808080;
+      text-align: center;
+    }
+
+    .card {
+      background: #f0f0f0;
+      border: 3px groove #808080;
+      margin-bottom: 15px;
+      padding: 12px;
+    }
+
+    .message-card {
+      background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%);
+    }
+
+    .message-header {
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 2px dashed #808080;
+    }
+
+    .message-meta {
+      display: block;
+      font-size: 12px;
+    }
+
+    .message-meta > * {
+      display: inline-block;
+      margin-right: 10px;
+      margin-bottom: 5px;
+    }
+
+    .timestamp {
+      font-family: "Courier New", monospace;
+      color: #008000;
+      font-weight: bold;
+      cursor: pointer;
+      background: #ffff00;
+      padding: 2px 6px;
+      border: 2px outset #808080;
+    }
+
+    .timestamp:hover {
+      border-style: inset;
+    }
+
+    .timestamp:active {
+      background: #ffaa00;
+    }
+
+    .channel-tag {
+      font-family: "Courier New", monospace;
+      color: #ffffff;
+      font-weight: bold;
+      background: #ff0000;
+      padding: 2px 6px;
+      border: 2px outset #ff8080;
+    }
+
+    .nickname {
+      font-family: "Courier New", monospace;
+      color: #ffffff;
+      font-weight: bold;
+      background: #0000ff;
+      padding: 2px 6px;
+      border: 2px outset #8080ff;
+      cursor: pointer;
+    }
+
+    .nickname:hover {
+      background: #0000aa;
+      border-style: inset;
+    }
+
+    .message-body {
+      color: #000000;
+      cursor: pointer;
+      word-break: break-word;
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 8px;
+      background: #ffffff;
+      border: 1px solid #c0c0c0;
+    }
+
+    .message-body:hover {
+      background: #ffffcc;
+    }
+
+    .user-info {
+      display: none;
+      margin-top: 10px;
+      padding: 10px;
+      background: #ffffcc;
+      border: 3px double #ff00ff;
+      font-size: 12px;
+      color: #800000;
+    }
+
+    .user-info.active {
+      display: block;
+    }
+
+    .user-info div {
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .user-info div::before {
+      content: '►';
+      margin-right: 5px;
+      color: #ff0000;
+    }
+
+    .toggle-btn {
+      display: inline-block;
+      padding: 8px 20px;
+      background: #c0c0c0;
+      color: #000000;
+      border: 3px outset #808080;
+      font-family: "Comic Sans MS", sans-serif;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+    }
+
+    .toggle-btn:hover {
+      background: #d0d0d0;
+    }
+
+    .toggle-btn:active {
+      border-style: inset;
+      background: #a0a0a0;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      background: #ffffff;
+      border: 3px ridge #808080;
+    }
+
+    .data-table th {
+      padding: 8px;
+      text-align: left;
+      font-weight: bold;
+      color: #ffffff;
+      background: #008080;
+      border: 2px outset #40c0c0;
+    }
+
+    .data-table td {
+      padding: 8px;
+      border: 1px solid #808080;
+      background: #ffffff;
+    }
+
+    .data-table tbody tr:nth-child(even) {
+      background: #f0f0f0;
+    }
+
+    .data-table tbody tr:hover {
+      background: #ffffcc;
+    }
+
+    .mono {
+      font-family: "Courier New", monospace;
+    }
+
+    .sentiment-cell {
+      text-align: center;
+      font-weight: bold;
+      padding: 6px !important;
+      border: 2px inset #808080 !important;
+    }
+
+    .sentimentScore-10, .boldSentimentScore-5 { 
+      background: #ff0000 !important;
+      color: #ffffff;
+    }
+    .sentimentScore-9, .boldSentimentScore-4 { 
+      background: #ff4040 !important;
+      color: #ffffff;
+    }
+    .sentimentScore-8, .boldSentimentScore-3 { 
+      background: #ff8080 !important;
+      color: #000000;
+    }
+    .sentimentScore-7, .boldSentimentScore-2 { 
+      background: #ffc0c0 !important;
+      color: #000000;
+    }
+    .sentimentScore-6, .boldSentimentScore-1 { 
+      background: #ffff00 !important;
+      color: #000000;
+    }
+    .sentimentScore-5, .boldSentimentScore-0, .boldSentimentScore0 { 
+      background: #c0c0c0 !important;
+      color: #000000;
+    }
+    .sentimentScore1, .boldSentimentScore1 { 
+      background: #c0ffc0 !important;
+      color: #000000;
+    }
+    .sentimentScore2, .boldSentimentScore2 { 
+      background: #80ff80 !important;
+      color: #000000;
+    }
+    .sentimentScore3, .boldSentimentScore3 { 
+      background: #40ff40 !important;
+      color: #000000;
+    }
+    .sentimentScore4, .boldSentimentScore4 { 
+      background: #00ff00 !important;
+      color: #000000;
+    }
+    .sentimentScore5, .boldSentimentScore5 { 
+      background: #00c000 !important;
+      color: #ffffff;
+    }
+
+    .summary-meta {
+      font-size: 11px;
+      color: #808080;
+      margin-top: 5px;
+      font-style: italic;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 15px;
+      background: #c0c0c0;
+      border-top: 3px ridge #808080;
+      font-size: 12px;
+      color: #000000;
+    }
+
+    .footer::before {
+      content: '════════════════════════════════════════════════════════════';
+      display: block;
+      color: #808080;
+      margin-bottom: 10px;
+      font-family: monospace;
+      font-size: 10px;
+    }
+
+    .footer a {
+      color: #0000ff;
+      text-decoration: underline;
+      font-weight: bold;
+    }
+
+    .footer a:visited {
+      color: #800080;
+    }
+
+    .footer a:hover {
+      color: #ff0000;
+    }
+
+    #countdown-timer {
+      color: #ff0000;
+      font-weight: bold;
+      background: #ffff00;
+      padding: 2px 6px;
+      border: 2px solid #ff8800;
+    }
+
+    .marquee-container {
+      background: #000080;
+      padding: 5px;
+      border: 2px ridge #808080;
+      margin-bottom: 15px;
+      overflow: hidden;
+    }
+
+    .marquee-text {
+      color: #ffff00;
+      font-weight: bold;
+      white-space: nowrap;
+      animation: marquee 15s linear infinite;
+    }
+
+    @keyframes marquee {
+      from { transform: translateX(100%); }
+      to { transform: translateX(-100%); }
+    }
+
+    .counter {
+      background: #000000;
+      color: #00ff00;
+      font-family: "Courier New", monospace;
+      padding: 3px 8px;
+      border: 2px inset #808080;
+      display: inline-block;
+      margin: 0 5px;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 5px;
+      }
+
+      .header h1 {
+        font-size: 20px;
+      }
+
+      .card {
+        padding: 8px;
+      }
+    }
+
+    /* Web 1.0 hit counter style */
+    .hit-counter {
+      text-align: center;
+      margin: 10px 0;
+      font-size: 12px;
+    }
+
+    .hit-counter img {
+      border: 2px inset #808080;
+      margin: 0 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>
+        {{#extra.summarizeOnly}}★ NETWORK SUMMARY ★{{/extra.summarizeOnly}}
+        {{^extra.summarizeOnly}}★ MESSAGE DIGEST ★{{/extra.summarizeOnly}}
+      </h1>
+      <div class="subtitle">
+        {{#extra.summarizeOnly}}
+        Activity from <span class="network-tag">{{ network }}</span>
+        {{/extra.summarizeOnly}}
+        {{^extra.summarizeOnly}}
+        <span class="counter">{{ elements.length }}</span> messages from <span class="network-tag">{{ network }}</span>
+        {{/extra.summarizeOnly}}
+        {{#extra.minutes}} · Last <span class="counter">{{extra.minutes}}</span> minutes{{/extra.minutes}}
+      </div>
+    </div>
+
+    <div class="content-area">
+      <div class="marquee-container">
+        <div class="marquee-text">
+          ★☆★ Welcome to the Message Digest ★☆★ Powered by DiscordRC ★☆★ Web 1.0 Forever! ★☆★
+        </div>
+      </div>
+
+      {{ #extra.channelSummaries }}
+      <div class="section-header">📋 CHANNEL SUMMARIES 📋</div>
+      <div class="card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Channel</th>
+              <th>Summary</th>
+            </tr>
+          </thead>
+          <tbody>
+          {{#channels}}
+            <tr>
+              <td class="mono" style="white-space: nowrap;">
+                <strong>{{channel}}</strong>
+                {{#durationSec}}<div class="summary-meta">{{durationSec}}s{{#messageCount}} · {{messageCount}} msgs{{/messageCount}}</div>{{/durationSec}}
+              </td>
+              <td>{{summary}}</td>
+            </tr>
+          {{/channels}}
+          </tbody>
+        </table>
+      </div>
+      {{ /extra.channelSummaries }}
+
+      {{ ^extra.summarizeOnly }}
+      <button class="toggle-btn" onclick="toggleAllUserDisplays()">⚙ Toggle All Details ⚙</button>
+
+      <div class="digest-container">
+        {{ #elements }}
+        <div class="card message-card">
+          <div class="message-header">
+            <div class="message-meta">
+              <span class="timestamp" onclick="this.textContent='{{ timestamp }}';">{{ timestampString }}</span>
+              <span class="channel-tag">{{ data.target }}</span>
+              <span class="nickname userDisplay-trigger" onclick="toggleUserDisplay(this);">{{ data.nick }}</span>
+            </div>
+          </div>
+          <div class="message-body userDisplay-trigger" onclick="toggleUserDisplay(this);">{{ data.message }}</div>
+          <div class="user-info userDisplay-info">
+            <div>Identity: {{ data.ident }}@{{ data.hostname }}</div>
+            <div>Sentiment: {{ data.sentiment.score }} / {{ data.sentiment.comparative }}</div>
+          </div>
+        </div>
+        {{ /elements }}
+      </div>
+
+      {{ #extra.sentiments }}
+      <div class="section-header">📊 SENTIMENT ANALYSIS 📊</div>
+      <div class="card">
+        <center><b>By Channel</b></center>
+        <table class="data-table">
+          <thead><tr><th>Channel</th><th>Score</th><th>Comparative</th><th>Messages</th></tr></thead>
+          <tbody>
+          {{ #perChan }}
+            <tr>
+              <td class="mono"><b>{{ key }}</b></td>
+              <td class="sentiment-cell boldSentimentScore{{ value.scoreRound }}">{{ value.score }}</td>
+              <td class="sentiment-cell boldSentimentScore{{ value.comparativeRound }}">{{ value.comparative }}</td>
+              <td class="counter">{{ value.count }}</td>
+            </tr>
+          {{ /perChan }}
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <center><b>By Nickname</b></center>
+        <table class="data-table">
+          <thead><tr><th>Nickname</th><th>Score</th><th>Comparative</th><th>Messages</th></tr></thead>
+          <tbody>
+          {{ #perNick }}
+            <tr>
+              <td class="mono"><b>{{ key }}</b></td>
+              <td class="sentiment-cell boldSentimentScore{{ value.scoreRound }}">{{ value.score }}</td>
+              <td class="sentiment-cell boldSentimentScore{{ value.comparativeRound }}">{{ value.comparative }}</td>
+              <td class="counter">{{ value.count }}</td>
+            </tr>
+          {{ /perNick }}
+          </tbody>
+        </table>
+      </div>
+      {{ /extra.sentiments }}
+      {{ /extra.summarizeOnly }}
+    </div>
+
+    <div class="footer">
+      <p><b>Generated at {{ captureTimestamp }} ({{ timezone }})</b></p>
+      <p>Powered by <a href="https://discordrc.com">{{ NAME }}-v{{ VERSION }}</a></p>
+      {{#documentExpiresAt}}
+      <p>⏰ Expires in: <span id="countdown-timer">calculating...</span></p>
+      <span id="document-expires-at" style="display: none;">{{ documentExpiresAt }}</span>
+      <span id="document-expires-unix" style="display: none;">{{ documentExpiresAtUnix }}</span>
+      <script src="/js/countdownTimer.js"></script>
+      {{/documentExpiresAt}}
+      <p style="margin-top: 10px; font-size: 10px;">
+        <i>Best viewed with Netscape Navigator 4.0 or Internet Explorer 5.5</i>
+      </p>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    function toggleUserDisplay(el) {
+      var card = el.closest('.message-card');
+      var info = card.querySelector('.userDisplay-info');
+      info.classList.toggle('active');
+    }
+    function toggleAllUserDisplays() {
+      var infos = document.querySelectorAll('.userDisplay-info');
+      var anyVisible = false;
+      for (var i = 0; i < infos.length; i++) {
+        if (infos[i].classList.contains('active')) {
+          anyVisible = true;
+          break;
+        }
+      }
+      for (var i = 0; i < infos.length; i++) {
+        if (anyVisible) {
+          infos[i].classList.remove('active');
+        } else {
+          infos[i].classList.add('active');
+        }
+      }
+    }
+  </script>
+</body>
+</html>

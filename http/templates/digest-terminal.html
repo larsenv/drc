@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>
+    {{#extra.summarizeOnly}}
+    Summary of activity from {{ network }}
+    {{/extra.summarizeOnly}}
+    {{^extra.summarizeOnly}}
+    {{ elements.length }}-message digest - {{ network }} - DiscordRC
+    {{/extra.summarizeOnly}}
+  </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style type="text/css">
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --term-green: #00ff00;
+      --term-green-dim: #00cc00;
+      --term-green-dimmer: #008800;
+      --term-amber: #ffb000;
+      --term-cyan: #00ffff;
+      --term-bg: #000000;
+      --term-bg-lighter: #0a0a0a;
+      --term-border: #00ff00;
+    }
+
+    body {
+      font-family: 'IBM Plex Mono', 'Courier New', monospace;
+      background: var(--term-bg);
+      color: var(--term-green);
+      line-height: 1.5;
+      font-size: 14px;
+      padding: 1rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .header {
+      border: 2px solid var(--term-border);
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--term-bg-lighter);
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--term-green);
+      text-align: center;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 0 5px var(--term-green);
+    }
+
+    .header::before {
+      content: '═══════════════════════════════════════════════════════════════════════════════';
+      display: block;
+      color: var(--term-green-dimmer);
+      margin-bottom: 0.5rem;
+      overflow: hidden;
+      text-overflow: clip;
+      white-space: nowrap;
+    }
+
+    .header::after {
+      content: '═══════════════════════════════════════════════════════════════════════════════';
+      display: block;
+      color: var(--term-green-dimmer);
+      margin-top: 0.5rem;
+      overflow: hidden;
+      text-overflow: clip;
+      white-space: nowrap;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: var(--term-green-dim);
+      font-size: 0.9rem;
+    }
+
+    .network-tag {
+      color: var(--term-amber);
+      font-weight: 600;
+    }
+
+    .section-header {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin: 2rem 0 1rem;
+      color: var(--term-green);
+      border-bottom: 1px solid var(--term-green-dimmer);
+      padding-bottom: 0.5rem;
+    }
+
+    .section-header::before {
+      content: '▶ ';
+      color: var(--term-green);
+    }
+
+    .card {
+      border: 1px solid var(--term-green-dimmer);
+      margin-bottom: 1rem;
+      background: var(--term-bg-lighter);
+    }
+
+    .message-card {
+      padding: 0.75rem;
+      border-left: 3px solid var(--term-green-dimmer);
+    }
+
+    .message-header {
+      margin-bottom: 0.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px dashed var(--term-green-dimmer);
+    }
+
+    .message-meta {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .timestamp {
+      color: var(--term-green-dim);
+      cursor: pointer;
+    }
+
+    .timestamp::before {
+      content: '[';
+      color: var(--term-green-dimmer);
+    }
+
+    .timestamp::after {
+      content: ']';
+      color: var(--term-green-dimmer);
+    }
+
+    .timestamp:hover {
+      color: var(--term-green);
+      text-shadow: 0 0 5px var(--term-green);
+    }
+
+    .channel-tag {
+      color: var(--term-amber);
+    }
+
+    .channel-tag::before {
+      content: '#';
+    }
+
+    .nickname {
+      color: var(--term-cyan);
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .nickname::before {
+      content: '<';
+      color: var(--term-green-dimmer);
+    }
+
+    .nickname::after {
+      content: '>';
+      color: var(--term-green-dimmer);
+    }
+
+    .nickname:hover {
+      color: var(--term-green);
+      text-shadow: 0 0 3px var(--term-cyan);
+    }
+
+    .message-body {
+      color: var(--term-green);
+      cursor: pointer;
+      word-break: break-word;
+    }
+
+    .message-body:hover {
+      background: var(--term-bg);
+    }
+
+    .user-info {
+      display: none;
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      border: 1px dashed var(--term-green-dimmer);
+      color: var(--term-green-dim);
+      font-size: 0.85rem;
+    }
+
+    .user-info.active {
+      display: block;
+    }
+
+    .user-info div::before {
+      content: '→ ';
+      color: var(--term-green-dimmer);
+    }
+
+    .toggle-btn {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background: transparent;
+      color: var(--term-green);
+      border: 2px solid var(--term-green);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.9rem;
+      cursor: pointer;
+      margin-bottom: 1.5rem;
+      transition: all 0.2s;
+    }
+
+    .toggle-btn:hover {
+      background: var(--term-green);
+      color: var(--term-bg);
+      box-shadow: 0 0 10px var(--term-green);
+    }
+
+    .toggle-btn::before {
+      content: '[ ';
+    }
+
+    .toggle-btn::after {
+      content: ' ]';
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      border: 1px solid var(--term-green-dimmer);
+    }
+
+    .data-table th {
+      padding: 0.75rem;
+      text-align: left;
+      font-weight: 600;
+      color: var(--term-green);
+      border-bottom: 2px solid var(--term-green-dimmer);
+      background: var(--term-bg-lighter);
+    }
+
+    .data-table td {
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--term-green-dimmer);
+      color: var(--term-green-dim);
+    }
+
+    .data-table tbody tr:hover {
+      background: var(--term-bg);
+    }
+
+    .data-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .mono {
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .sentiment-cell {
+      padding: 0.25rem 0.5rem !important;
+      text-align: center;
+    }
+
+    .sentimentScore-10, .boldSentimentScore-5 { color: #ff0000; }
+    .sentimentScore-9, .boldSentimentScore-4 { color: #ff3333; }
+    .sentimentScore-8, .boldSentimentScore-3 { color: #ff6666; }
+    .sentimentScore-7, .boldSentimentScore-2 { color: #ff9999; }
+    .sentimentScore-6, .boldSentimentScore-1 { color: #ffcccc; }
+    .sentimentScore-5, .boldSentimentScore-0, .boldSentimentScore0 { color: var(--term-green-dim); }
+    .sentimentScore1, .boldSentimentScore1 { color: #88ff88; }
+    .sentimentScore2, .boldSentimentScore2 { color: #66ff66; }
+    .sentimentScore3, .boldSentimentScore3 { color: #44ff44; }
+    .sentimentScore4, .boldSentimentScore4 { color: #22ff22; }
+    .sentimentScore5, .boldSentimentScore5 { color: #00ff00; }
+
+    .summary-meta {
+      font-size: 0.75rem;
+      color: var(--term-green-dimmer);
+      margin-top: 0.25rem;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 2rem 1rem 1rem;
+      color: var(--term-green-dimmer);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--term-green-dimmer);
+      margin-top: 3rem;
+    }
+
+    .footer::before {
+      content: '─────────────────────────────────────────────────────────────────────────────';
+      display: block;
+      margin-bottom: 1rem;
+    }
+
+    .footer a {
+      color: var(--term-green);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      color: var(--term-amber);
+      text-shadow: 0 0 5px var(--term-amber);
+    }
+
+    #countdown-timer {
+      color: var(--term-amber);
+      font-weight: 500;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        font-size: 12px;
+      }
+
+      .header h1 {
+        font-size: 1.2rem;
+      }
+
+      .card {
+        padding: 0.5rem;
+      }
+
+      .data-table th,
+      .data-table td {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.8rem;
+      }
+    }
+
+    /* CRT flicker effect - subtle */
+    @keyframes flicker {
+      0% { opacity: 0.98; }
+      50% { opacity: 1; }
+      100% { opacity: 0.98; }
+    }
+
+    body {
+      animation: flicker 0.15s infinite;
+    }
+
+    /* Scan line effect */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 255, 0, 0.03),
+        rgba(0, 255, 0, 0.03) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>
+        {{#extra.summarizeOnly}}
+        ▓▓▓ NETWORK SUMMARY ▓▓▓
+        {{/extra.summarizeOnly}}
+        {{^extra.summarizeOnly}}
+        ▓▓▓ MESSAGE DIGEST ▓▓▓
+        {{/extra.summarizeOnly}}
+      </h1>
+      <div class="subtitle">
+        {{#extra.summarizeOnly}}
+        Activity from <span class="network-tag">{{ network }}</span>
+        {{/extra.summarizeOnly}}
+        {{^extra.summarizeOnly}}
+        {{ elements.length }} messages from <span class="network-tag">{{ network }}</span>
+        {{/extra.summarizeOnly}}
+      </div>
+      {{#extra.minutes}}
+      <div class="subtitle" style="margin-top: 0.5rem;">
+        Last {{extra.minutes}} minutes
+      </div>
+      {{/extra.minutes}}
+    </div>
+
+    {{ #extra.channelSummaries }}
+    <h2 class="section-header">Channel Summaries</h2>
+
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Channel</th>
+            <th>Summary</th>
+          </tr>
+        </thead>
+        <tbody>
+        {{#channels}}
+          <tr>
+            <td class="mono" style="white-space: nowrap;">
+              {{channel}}
+              {{#durationSec}}
+              <div class="summary-meta">
+                {{durationSec}}s
+                {{#messageCount}}
+                |
+                  {{#messagesReduced}}
+                    {{finalMessageCount}}/{{messageCount}} msgs ({{reductionPercent}}% reduced)
+                  {{/messagesReduced}}
+                  {{^messagesReduced}}
+                    {{messageCount}} msgs
+                  {{/messagesReduced}}
+                {{/messageCount}}
+                {{#retryCount}}
+                | {{retryCount}} {{#hasError}}failed {{/hasError}}retries
+                {{/retryCount}}
+                {{#rateLimitRetries}}
+                | {{rateLimitRetries}} rate-limit
+                {{/rateLimitRetries}}
+              </div>
+              {{/durationSec}}
+            </td>
+            <td>{{summary}}</td>
+          </tr>
+        {{/channels}}
+        </tbody>
+      </table>
+    </div>
+    {{ /extra.channelSummaries }}
+
+    {{ ^extra.summarizeOnly }}
+
+    <button class="toggle-btn" onclick="toggleAllUserDisplays()">
+      TOGGLE ALL DETAILS
+    </button>
+
+    <div class="digest-container">
+      {{ #elements }}
+      <div class="card message-card">
+        <div class="message-header">
+          <div class="message-meta">
+            <span class="timestamp" onclick="this.textContent='{{ timestamp }}';">
+              {{ timestampString }}
+            </span>
+            <span class="channel-tag">{{ data.target }}</span>
+            <span class="nickname userDisplay-trigger" onclick="toggleUserDisplay(this);">
+              {{ data.nick }}
+            </span>
+          </div>
+        </div>
+
+        <div class="message-body userDisplay-trigger" onclick="toggleUserDisplay(this);">
+          {{ data.message }}
+        </div>
+
+        <div class="user-info userDisplay-info">
+          <div>Identity: {{ data.ident }}</div>
+          <div>Hostname: {{ data.hostname }}</div>
+          <div>Sentiment: {{ data.sentiment.score }}</div>
+          <div>Comparative: {{ data.sentiment.comparative }}</div>
+        </div>
+      </div>
+      {{ /elements }}
+    </div>
+
+    {{ #extra.sentiments }}
+    <h2 class="section-header">Sentiment Analysis</h2>
+
+    <div class="card">
+      <h3 style="font-size: 1rem; margin: 1rem; color: var(--term-green);">By Channel</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Channel</th>
+            <th>Score</th>
+            <th>Comparative</th>
+            <th>Messages</th>
+          </tr>
+        </thead>
+        <tbody>
+        {{ #perChan }}
+          <tr>
+            <td class="mono">{{ key }}</td>
+            <td class="sentiment-cell boldSentimentScore{{ value.scoreRound }}">{{ value.score }}</td>
+            <td class="sentiment-cell boldSentimentScore{{ value.comparativeRound }}">{{ value.comparative }}</td>
+            <td>{{ value.count }}</td>
+          </tr>
+        {{ /perChan }}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 1rem; margin: 1rem; color: var(--term-green);">By Nickname</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Nickname</th>
+            <th>Score</th>
+            <th>Comparative</th>
+            <th>Messages</th>
+          </tr>
+        </thead>
+        <tbody>
+        {{ #perNick }}
+          <tr>
+            <td class="mono">{{ key }}</td>
+            <td class="sentiment-cell boldSentimentScore{{ value.scoreRound }}">{{ value.score }}</td>
+            <td class="sentiment-cell boldSentimentScore{{ value.comparativeRound }}">{{ value.comparative }}</td>
+            <td>{{ value.count }}</td>
+          </tr>
+        {{ /perNick }}
+        </tbody>
+      </table>
+    </div>
+    {{ /extra.sentiments }}
+    {{ /extra.summarizeOnly }}
+
+    <div class="footer">
+      <p>Generated at {{ captureTimestamp }} ({{ timezone }}) by
+      <a href="https://discordrc.com" target="_blank">{{ NAME }}-v{{ VERSION }}</a>
+      {{#documentExpiresAt}}
+      <br>Self-destructs in <strong id="countdown-timer">calculating...</strong>
+      <span id="document-expires-at" style="display: none;">{{ documentExpiresAt }}</span>
+      <span id="document-expires-unix" style="display: none;">{{ documentExpiresAtUnix }}</span>
+      <script src="/js/countdownTimer.js"></script>
+      {{/documentExpiresAt}}</p>
+    </div>
+  </div>
+
+  <script defer type="text/javascript">
+    function toggleUserDisplay(element) {
+      const card = element.closest('.message-card');
+      const info = card.querySelector('.userDisplay-info');
+      info.classList.toggle('active');
+    }
+
+    function toggleAllUserDisplays() {
+      const allInfos = document.querySelectorAll('.userDisplay-info');
+      const anyVisible = Array.from(allInfos).some(info => info.classList.contains('active'));
+
+      allInfos.forEach(info => {
+        if (anyVisible) {
+          info.classList.remove('active');
+        } else {
+          info.classList.add('active');
+        }
+      });
+    }
+  </script>
+</body>
+</html>
