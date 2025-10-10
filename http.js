@@ -635,7 +635,7 @@ redisListener.subscribe(PREFIX, (err) => {
         return res.code(400).send({ error: 'Invalid name length' });
       }
 
-      if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+      if (!/^[a-zA-Z0-9_.-]+$/.test(name)) {
         return res.code(400).send({ error: 'Invalid characters in name' });
       }
 
