@@ -19,8 +19,147 @@ const multiavatar = require('@multiavatar/multiavatar');
 const { execSync } = require('child_process');
 const { startLogStream } = require('./http/liveLogsManager');
 
+// Security helper functions
+function sanitizePath (baseDir, userPath) {
+  const normalizedBase = path.resolve(baseDir);
+  const resolvedPath = path.resolve(normalizedBase, path.normalize(userPath));
+  if (!resolvedPath.startsWith(normalizedBase + path.sep) && resolvedPath !== normalizedBase) {
+    throw new Error('Path traversal detected');
+  }
+  return resolvedPath;
+}
+
+function isURLSafe (urlString) {
+  try {
+    const url = new URL(urlString);
+
+    if (url.protocol !== 'https:') {
+      return false;
+    }
+
+    const hostname = url.hostname;
+    const blockedPatterns = [
+      /^127\./,
+      /^10\./,
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+      /^192\.168\./,
+      /^169\.254\./,
+      /^localhost$/i,
+      /^0\.0\.0\.0$/,
+      /^\[::/,
+      /^fc00:/i,
+      /^fe80:/i
+    ];
+
+    if (blockedPatterns.some(pattern => pattern.test(hostname))) {
+      return false;
+    }
+
+    const allowedDomains = ['cdn.discordapp.com', 'media.discordapp.net'];
+    if (!allowedDomains.some(domain => hostname.endsWith(domain))) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function validateKeyComponent (keyComponent) {
+  if (!keyComponent || typeof keyComponent !== 'string') {
+    throw new Error('Invalid key component');
+  }
+
+  if (!/^[a-zA-Z0-9_-]+$/.test(keyComponent)) {
+    throw new Error('Invalid key component');
+  }
+
+  if (keyComponent.length > 100) {
+    throw new Error('Key component too long');
+  }
+
+  return keyComponent;
+}
+
+function validateTemplateName (templateName) {
+  if (!templateName || typeof templateName !== 'string') {
+    return false;
+  }
+
+  const validBaseTemplates = new Set([
+    'digest',
+    'ai',
+    'liveLogs',
+    'editor',
+    'gpt',
+    'stats',
+    'whois',
+    'channelXforms',
+    'claude'
+  ]);
+
+  const validDigestVariants = new Set([
+    'dracula',
+    'glass',
+    'minimal',
+    'modern',
+    'modern-light',
+    'neon',
+    'nord',
+    'paper',
+    'plain',
+    'retro',
+    'solarized-dark',
+    'solarized',
+    'terminal'
+  ]);
+
+  if (validBaseTemplates.has(templateName)) {
+    return true;
+  }
+
+  if (templateName.startsWith('digest-')) {
+    const variant = templateName.substring(7);
+    return validDigestVariants.has(variant);
+  }
+
+  return false;
+}
+
+class ProcessPool {
+  constructor (maxConcurrent = 5, maxQueue = 20) {
+    this.maxConcurrent = maxConcurrent;
+    this.maxQueue = maxQueue;
+    this.active = 0;
+    this.queue = [];
+  }
+
+  async execute (fn) {
+    while (this.active >= this.maxConcurrent) {
+      if (this.queue.length >= this.maxQueue) {
+        throw new Error('Queue full');
+      }
+      await new Promise(resolve => this.queue.push(resolve));
+    }
+
+    this.active++;
+    try {
+      return await fn();
+    } finally {
+      this.active--;
+      if (this.queue.length > 0) {
+        this.queue.shift()();
+      }
+    }
+  }
+}
+
+const inkscapePool = new ProcessPool(5, 20);
+
 const app = require('fastify')({
-  logger: true
+  logger: true,
+  bodyLimit: 1048576 // 1MB global limit
 });
 
 // Add WebSocket support
@@ -137,19 +276,33 @@ async function renderAndCache (handler, templateParam) {
   let effectiveRenderType = renderType;
   const defaultTemplate = options?.template;
 
+  // Validate base renderType
+  if (!validateTemplateName(renderType)) {
+    throw new Error(`Invalid renderType: ${renderType}`);
+  }
+
   if (templateParam && renderType === 'digest') {
-    const candidateTemplate = `digest-${templateParam}`;
-    templatesLoad();
-    const availableTemplates = getTemplates();
-    if (availableTemplates && availableTemplates[candidateTemplate]) {
-      effectiveRenderType = candidateTemplate;
+    // Validate template parameter
+    if (typeof templateParam !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(templateParam)) {
+      console.warn('Invalid template parameter, using default');
+    } else {
+      const candidateTemplate = `digest-${templateParam}`;
+      if (validateTemplateName(candidateTemplate)) {
+        templatesLoad();
+        const availableTemplates = getTemplates();
+        if (availableTemplates && availableTemplates[candidateTemplate]) {
+          effectiveRenderType = candidateTemplate;
+        }
+      }
     }
   } else if (defaultTemplate && renderType === 'digest') {
     const candidateTemplate = `digest-${defaultTemplate}`;
-    templatesLoad();
-    const availableTemplates = getTemplates();
-    if (availableTemplates && availableTemplates[candidateTemplate]) {
-      effectiveRenderType = candidateTemplate;
+    if (validateTemplateName(candidateTemplate)) {
+      templatesLoad();
+      const availableTemplates = getTemplates();
+      if (availableTemplates && availableTemplates[candidateTemplate]) {
+        effectiveRenderType = candidateTemplate;
+      }
     }
   }
 
@@ -194,44 +347,49 @@ redisListener.subscribe(PREFIX, (err) => {
     console.log(`Using attachments path: ${attachmentsDir}`);
 
     app.get('/attachments/:name', async (req, res) => {
-      const attachmentPath = path.join(attachmentsDir, req.params.name);
-
       try {
+        const attachmentPath = sanitizePath(attachmentsDir, req.params.name);
         console.log(`serving ${attachmentPath}`);
         const mimeType = mimeTypes.lookup(path.parse(attachmentPath).ext || 'application/octet-stream');
         return res.type(mimeType).send(await fs.promises.readFile(attachmentPath));
       } catch (e) {
-        console.error(`failed to send ${attachmentPath}:`, e);
+        console.error('failed to send attachment:', e.message);
         return res.redirect(config.http.rootRedirectUrl);
       }
     });
   }
 
-  async function staticServe (res, p) {
+  async function staticServe (res, baseDir, userPath) {
     const allowed = {
       '.js': 'text/javascript',
       '.css': 'text/css',
       '.map': 'application/json'
     };
 
-    const { ext } = path.parse(p);
-    if (!allowed[ext]) {
+    try {
+      const safePath = sanitizePath(baseDir, userPath);
+      const { ext } = path.parse(safePath);
+      if (!allowed[ext]) {
+        return res.redirect(config.http.rootRedirectUrl);
+      }
+
+      return res.type(allowed[ext]).send(await fs.promises.readFile(safePath));
+    } catch (e) {
+      console.error('staticServe error:', e.message);
       return res.redirect(config.http.rootRedirectUrl);
     }
-
-    return res.type(allowed[ext]).send(await fs.promises.readFile(p));
   }
 
   app.get('/vendored/monaco/*', async (req, res) => {
-    return staticServe(res, path.join(__dirname, 'node_modules', 'monaco-editor', 'min', 'vs', req.params['*']));
+    return staticServe(res, path.join(__dirname, 'node_modules', 'monaco-editor', 'min', 'vs'), req.params['*']);
   });
 
   app.get('/min-maps/*', async (req, res) => {
-    return staticServe(res, path.join(__dirname, 'node_modules', 'monaco-editor', 'min-maps', req.params['*']));
+    return staticServe(res, path.join(__dirname, 'node_modules', 'monaco-editor', 'min-maps'), req.params['*']);
   });
 
   app.get('/js/*', async (req, res) => {
-    return staticServe(res, path.join(__dirname, 'http', 'js', req.params['*']));
+    return staticServe(res, path.join(__dirname, 'http', 'js'), req.params['*']);
   });
 
   app.get('/templates/common.css', async (req, res) => {
@@ -243,13 +401,12 @@ redisListener.subscribe(PREFIX, (err) => {
   });
 
   app.get('/static/:name', async (req, res) => {
-    const assetPath = path.join(config.http.staticDir, req.params.name);
-    const mimeType = mimeTypes.lookup(path.parse(assetPath).ext || 'application/octet-stream');
-
     try {
+      const assetPath = sanitizePath(config.http.staticDir, req.params.name);
+      const mimeType = mimeTypes.lookup(path.parse(assetPath).ext || 'application/octet-stream');
       return res.type(mimeType).send(await fs.promises.readFile(assetPath));
     } catch (e) {
-      console.error(`failed to send ${assetPath}:`, e);
+      console.error('failed to send static asset:', e.message);
       return res.redirect(config.http.rootRedirectUrl);
     }
   });
@@ -300,21 +457,36 @@ redisListener.subscribe(PREFIX, (err) => {
       console.debug('using Redis cached render obj for', req.params.id);
       let { renderType, renderObj, defaultTemplate } = cacheEntry;
 
+      // Validate renderType from cache
+      if (!validateTemplateName(renderType)) {
+        console.error('Invalid renderType from cache:', renderType);
+        return res.redirect(config.http.rootRedirectUrl);
+      }
+
       // Determine effective render type
       // Priority: 1) query param template, 2) defaultTemplate, 3) renderType
       if (req.query.template && renderType === 'digest') {
+        // Validate query parameter template name
+        if (typeof req.query.template !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(req.query.template)) {
+          return res.code(400).send({ error: 'Invalid template parameter' });
+        }
+
         const candidateTemplate = `digest-${req.query.template}`;
-        templatesLoad();
-        const availableTemplates = getTemplates();
-        if (availableTemplates && availableTemplates[candidateTemplate]) {
-          renderType = candidateTemplate;
+        if (validateTemplateName(candidateTemplate)) {
+          templatesLoad();
+          const availableTemplates = getTemplates();
+          if (availableTemplates && availableTemplates[candidateTemplate]) {
+            renderType = candidateTemplate;
+          }
         }
       } else if (!req.query.template && defaultTemplate && renderType === 'digest') {
         const candidateTemplate = `digest-${defaultTemplate}`;
-        templatesLoad();
-        const availableTemplates = getTemplates();
-        if (availableTemplates && availableTemplates[candidateTemplate]) {
-          renderType = candidateTemplate;
+        if (validateTemplateName(candidateTemplate)) {
+          templatesLoad();
+          const availableTemplates = getTemplates();
+          if (availableTemplates && availableTemplates[candidateTemplate]) {
+            renderType = candidateTemplate;
+          }
         }
       }
 
@@ -347,6 +519,14 @@ redisListener.subscribe(PREFIX, (err) => {
       return res.redirect(config.http.rootRedirectUrl);
     }
 
+    try {
+      validateKeyComponent(req.params.keyComponent);
+      validateKeyComponent(req.params.snippetName);
+    } catch (e) {
+      console.error('Invalid key component:', e.message);
+      return res.code(400).send({ error: 'Invalid parameters' });
+    }
+
     const { name, keyComponent } = PutAllowedIds[req.params.id];
     if (keyComponent !== req.params.keyComponent || name !== req.params.snippetName) {
       return res.redirect(config.http.rootRedirectUrl);
@@ -369,6 +549,30 @@ redisListener.subscribe(PREFIX, (err) => {
       return res.redirect(config.http.rootRedirectUrl);
     }
 
+    try {
+      validateKeyComponent(req.params.keyComponent);
+      validateKeyComponent(req.params.snippetName);
+    } catch (e) {
+      console.error('Invalid key component:', e.message);
+      return res.code(400).send({ error: 'Invalid parameters' });
+    }
+
+    // Validate content-type
+    const contentType = req.headers['content-type'];
+    if (contentType && !contentType.includes('text/plain') && !contentType.includes('application/json')) {
+      return res.code(400).send({ error: 'Invalid content type. Expected text/plain or application/json' });
+    }
+
+    // Validate body is string
+    if (typeof req.body !== 'string') {
+      return res.code(400).send({ error: 'Body must be a string' });
+    }
+
+    // Enforce explicit size limit (512KB)
+    if (req.body.length > 524288) {
+      return res.code(413).send({ error: 'Payload too large. Maximum size is 512KB' });
+    }
+
     const src = '(async function () {\n' + req.body + '\n})();';
     const linted = await linter.lintText(src);
     return res.send({
@@ -387,6 +591,24 @@ redisListener.subscribe(PREFIX, (err) => {
 
     if (!PutAllowedIds[req.params.id] || !req.params.snippetName || !req.params.keyComponent) {
       return res.redirect(config.http.rootRedirectUrl);
+    }
+
+    try {
+      validateKeyComponent(req.params.keyComponent);
+      validateKeyComponent(req.params.snippetName);
+    } catch (e) {
+      console.error('Invalid key component:', e.message);
+      return res.code(400).send({ error: 'Invalid parameters' });
+    }
+
+    // Validate body is string
+    if (typeof req.body !== 'string') {
+      return res.code(400).send({ error: 'Body must be a string' });
+    }
+
+    // Enforce explicit size limit (100KB for state storage)
+    if (req.body.length > 102400) {
+      return res.code(413).send({ error: 'Payload too large. Maximum size is 100KB' });
     }
 
     // this REALLY needs to be a proper IPC!!!!!!!
@@ -409,6 +631,14 @@ redisListener.subscribe(PREFIX, (err) => {
     try {
       const { name } = req.params;
 
+      if (!name || name.length > 100) {
+        return res.code(400).send({ error: 'Invalid name length' });
+      }
+
+      if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+        return res.code(400).send({ error: 'Invalid characters in name' });
+      }
+
       // Create a hash of the name for safe caching
       const nameHash = crypto.createHash('sha256').update(name).digest('hex');
       const cachedPngPath = path.join(__dirname, 'data', `${nameHash}.png`);
@@ -429,46 +659,68 @@ redisListener.subscribe(PREFIX, (err) => {
       }
 
       console.log(`Generating new avatar for: ${name}`);
-      const svgCode = multiavatar(name);
 
-      // Create temporary file for the SVG
-      const tempId = nanoid();
-      const svgPath = path.join(__dirname, 'data', `${tempId}.svg`);
+      const pngBuffer = await inkscapePool.execute(async () => {
+        const svgCode = multiavatar(name);
 
-      // Write SVG to temporary file
-      await fs.promises.writeFile(svgPath, svgCode);
+        // Create temporary file for the SVG
+        const tempId = nanoid();
+        const svgPath = path.join(__dirname, 'data', `${tempId}.svg`);
 
-      // Convert SVG to PNG using Inkscape
-      await new Promise((resolve, reject) => {
-        let args = ['-w', '1024', '-h', '1024', svgPath];
-        if (isInkscapeVersionLessThan1()) {
-          args = ['-z', ...args, '-e'];
-        } else {
-          args.push('-o');
+        // Write SVG to temporary file
+        await fs.promises.writeFile(svgPath, svgCode);
+
+        try {
+          // Convert SVG to PNG using Inkscape
+          await new Promise((resolve, reject) => {
+            let args = ['-w', '1024', '-h', '1024', svgPath];
+            if (isInkscapeVersionLessThan1()) {
+              args = ['-z', ...args, '-e'];
+            } else {
+              args.push('-o');
+            }
+            args.push(cachedPngPath);
+
+            const inkscape = require('child_process').spawn('inkscape', args, {
+              timeout: 10000
+            });
+
+            const timeoutId = setTimeout(() => {
+              inkscape.kill('SIGKILL');
+              reject(new Error('Inkscape process timed out'));
+            }, 10000);
+
+            inkscape.on('close', (code) => {
+              clearTimeout(timeoutId);
+              if (code === null) {
+                reject(new Error('Inkscape process timed out'));
+              } else if (code === 0) {
+                resolve();
+              } else {
+                reject(new Error(`Inkscape process exited with code ${code}`));
+              }
+            });
+
+            inkscape.on('error', (err) => {
+              clearTimeout(timeoutId);
+              reject(err);
+            });
+          });
+
+          // Read the PNG file
+          return await fs.promises.readFile(cachedPngPath);
+        } finally {
+          // Clean up temporary SVG file
+          await fs.promises.unlink(svgPath).catch(() => {});
         }
-        args.push(cachedPngPath);
-
-        const inkscape = require('child_process').spawn('inkscape', args);
-
-        inkscape.on('close', (code) => {
-          if (code === 0) {
-            resolve();
-          } else {
-            reject(new Error(`Inkscape process exited with code ${code}`));
-          }
-        });
-
-        inkscape.on('error', reject);
       });
 
-      // Clean up temporary SVG file
-      await fs.promises.unlink(svgPath).catch(() => {});
-
-      // Read the PNG file
-      const pngBuffer = await fs.promises.readFile(cachedPngPath);
       return res.type('image/png').send(pngBuffer);
     } catch (e) {
       console.error('Error generating multiavatar:', e);
+      if (e.message === 'Queue full') {
+        return res.code(503).send({ error: 'Service temporarily unavailable' });
+      }
       return res.code(500).send({ error: 'Error generating avatar' });
     }
   });
@@ -477,6 +729,16 @@ redisListener.subscribe(PREFIX, (err) => {
   app.get('/ws/liveLogs/:streamId', { websocket: true }, (connection, req) => {
     const { streamId } = req.params;
     console.log(`WebSocket connection established for stream: ${streamId}`);
+
+    // Validate streamId format (nanoid pattern or debug-test)
+    if (streamId !== 'debug-test' && !/^[A-Za-z0-9_-]{21}$/.test(streamId)) {
+      connection.socket.send(JSON.stringify({
+        type: 'error',
+        message: 'Invalid stream ID format'
+      }));
+      connection.socket.close();
+      return;
+    }
 
     // Special handling for debug test
     if (streamId === 'debug-test') {
@@ -749,6 +1011,10 @@ redisListener.subscribe(PREFIX, (err) => {
 
             if (data.enabled) {
               try {
+                if (!isURLSafe(attachmentURL)) {
+                  throw new Error('Invalid or unsafe URL');
+                }
+
                 const { ext } = path.parse((new URL(attachmentURL)).pathname);
                 const fetchRes = await fetch(attachmentURL, { // eslint-disable-line no-undef
                   headers: {

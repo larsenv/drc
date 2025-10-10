@@ -364,9 +364,30 @@ async function main () {
       }
     };
 
+    const sanitizeFileName = (name) => {
+      if (typeof name !== 'string') {
+        console.warn('[SECURITY] Non-string filename rejected:', typeof name);
+        return 'unknown';
+      }
+
+      const sanitized = name
+        .replace(/[/\\]/g, '_') // Replace path separators
+        .replace(/\.\./g, '__') // Replace parent directory references
+        .replace(/^\.+/, '_') // Remove leading dots
+        .replace(/[^\w\-_.#@]/g, '_') // Only allow safe characters (including @ for ident@host)
+        .substring(0, 255); // Limit length to filesystem max
+
+      if (sanitized !== name) {
+        console.warn('[SECURITY] Filename sanitized from:', name, 'to:', sanitized);
+      }
+
+      return sanitized;
+    };
+
     const logDataToFile = (fileName, data, { isNotice = false, pathExtra = [], isMessage = false, isEvent = false } = {}) => {
+      const sanitizedFileName = sanitizeFileName(fileName);
       const chanFileDir = path.join(...[ircLogPath, host, ...pathExtra]);
-      const chanFilePath = path.join(chanFileDir, fileName);
+      const chanFilePath = path.join(chanFileDir, sanitizedFileName);
 
       fs.stat(chanFileDir, async (err, _stats) => {
         try {

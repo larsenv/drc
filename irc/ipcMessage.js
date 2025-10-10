@@ -418,11 +418,49 @@ module.exports = async (context, chan, msg) => {
                   return;
                 }
 
+                const sanitizeNmapOptions = (options) => {
+                  const ALLOWED_NMAP_OPTIONS = new Set([
+                    '-p', '-sV', '-O', '-A', '-T1', '-T2', '-T3', '-T4', '-Pn',
+                    '--host-timeout', '--max-retries', '--version-intensity'
+                  ]);
+
+                  if (!Array.isArray(options)) {
+                    console.warn('[SECURITY] Invalid nmap options type:', typeof options);
+                    return [];
+                  }
+
+                  const sanitized = [];
+                  for (let i = 0; i < options.length; i++) {
+                    const opt = String(options[i]);
+                    const optBase = opt.split('=')[0];
+
+                    if (!ALLOWED_NMAP_OPTIONS.has(optBase)) {
+                      console.warn('[SECURITY] Blocked disallowed nmap option:', opt);
+                      continue;
+                    }
+
+                    if (opt.startsWith('-o') || opt.toLowerCase().includes('script') ||
+                        opt.toLowerCase().includes('input') || opt.includes('..')) {
+                      console.warn('[SECURITY] Blocked potentially dangerous nmap option:', opt);
+                      continue;
+                    }
+
+                    sanitized.push(opt);
+                  }
+
+                  if (sanitized.length !== options.length) {
+                    console.warn('[SECURITY] Filtered nmap options from', options.length, 'to', sanitized.length);
+                  }
+
+                  return sanitized;
+                };
+
                 const collectors = { stdout: [], stderr: [] };
                 let opts = ['nmap', ...config.nmap.defaultOptions];
 
                 if (Array.isArray(parsed.data.options.nmap)) {
-                  opts = [...opts, ...parsed.data.options.nmap];
+                  const safeOptions = sanitizeNmapOptions(parsed.data.options.nmap);
+                  opts = [...opts, ...safeOptions];
                 }
 
                 if (runningInContainer()) {
