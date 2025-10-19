@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Responses - DiscordRC</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+  <h2>Prompt</h2>
+  <p>{{ prompt }}</p>
+
+  {{#isMultipleModels}}
+  <p><em>Showing responses from {{modelCount}} models</em></p>
+
+  <h3>Jump to response:</h3>
+  <ul>
+    {{#responses}}
+    <li><a href="#response-{{responseIndex}}">{{responseIndex}}. {{provider}} {{#model}}({{model}}){{/model}}</a></li>
+    {{/responses}}
+  </ul>
+  {{/isMultipleModels}}
+
+  <hr>
+
+  {{#responses}}
+  <h3 id="response-{{responseIndex}}">Response #{{responseIndex}}: {{provider}} {{#model}}({{model}}){{/model}}</h3>
+  <div>{{{ response }}}</div>
+  <p><strong>Response time:</strong> {{ queryTimeS }} seconds</p>
+  {{#numTokens}}
+  <p><strong>Tokens consumed:</strong> {{ numTokens }}</p>
+  {{/numTokens}}
+  {{#queryTimePerTokenMs}}
+  <p><strong>Duration per token:</strong> {{ queryTimePerTokenMs }} ms</p>
+  {{/queryTimePerTokenMs}}
+  <p><strong>Via:</strong> {{{ viaHTML }}}</p>
+  <hr>
+  {{/responses}}
+
+  <p><small>
+    This document was generated at {{ captureTimestamp }} ({{ timezone }})
+    by <a href="https://discordrc.com">{{ NAME }}-v{{ VERSION }}</a>
+    {{#documentExpiresAt}}
+    &amp; will self-destruct in <strong id="countdown-timer">calculating...</strong>
+    <span id="document-expires-at" style="display: none;">{{ documentExpiresAt }}</span>
+    <span id="document-expires-unix" style="display: none;">{{ documentExpiresAtUnix }}</span>
+    <script src="/js/countdownTimer.js"></script>
+    {{/documentExpiresAt}}
+  </small></p>
+</body>
+</html>

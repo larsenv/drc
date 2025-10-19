@@ -437,6 +437,7 @@ f.__drcHelp = () => {
       ['--maxTokens', 'Set max tokens', true],
       ['--temperature', 'Set temperature', true],
       ['--system', 'Set system prompt for Claude', true],
+      ['--template', 'Default template to use for AI rendering (e.g., "modern", "plain"). Can be overridden with ?template= query param', true],
       ['--listModels', 'List all available models'],
       ['--listOpenAIModels', 'List available OpenAI models'],
       ['--listAnthropicModels', 'List available Anthropic models'],

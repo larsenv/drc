@@ -110,6 +110,7 @@ function validateTemplateName (templateName) {
     'paper',
     'plain',
     'retro',
+    'retro2',
     'solarized-dark',
     'solarized',
     'terminal'
@@ -121,6 +122,11 @@ function validateTemplateName (templateName) {
 
   if (templateName.startsWith('digest-')) {
     const variant = templateName.substring(7);
+    return validDigestVariants.has(variant);
+  }
+
+  if (templateName.startsWith('ai-')) {
+    const variant = templateName.substring(3);
     return validDigestVariants.has(variant);
   }
 
@@ -281,12 +287,12 @@ async function renderAndCache (handler, templateParam) {
     throw new Error(`Invalid renderType: ${renderType}`);
   }
 
-  if (templateParam && renderType === 'digest') {
+  if (templateParam && (renderType === 'digest' || renderType === 'ai')) {
     // Validate template parameter
     if (typeof templateParam !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(templateParam)) {
       console.warn('Invalid template parameter, using default');
     } else {
-      const candidateTemplate = `digest-${templateParam}`;
+      const candidateTemplate = `${renderType}-${templateParam}`;
       if (validateTemplateName(candidateTemplate)) {
         templatesLoad();
         const availableTemplates = getTemplates();
@@ -295,8 +301,8 @@ async function renderAndCache (handler, templateParam) {
         }
       }
     }
-  } else if (defaultTemplate && renderType === 'digest') {
-    const candidateTemplate = `digest-${defaultTemplate}`;
+  } else if (defaultTemplate && (renderType === 'digest' || renderType === 'ai')) {
+    const candidateTemplate = `${renderType}-${defaultTemplate}`;
     if (validateTemplateName(candidateTemplate)) {
       templatesLoad();
       const availableTemplates = getTemplates();
@@ -465,13 +471,13 @@ redisListener.subscribe(PREFIX, (err) => {
 
       // Determine effective render type
       // Priority: 1) query param template, 2) defaultTemplate, 3) renderType
-      if (req.query.template && renderType === 'digest') {
+      if (req.query.template && (renderType === 'digest' || renderType === 'ai')) {
         // Validate query parameter template name
         if (typeof req.query.template !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(req.query.template)) {
           return res.code(400).send({ error: 'Invalid template parameter' });
         }
 
-        const candidateTemplate = `digest-${req.query.template}`;
+        const candidateTemplate = `${renderType}-${req.query.template}`;
         if (validateTemplateName(candidateTemplate)) {
           templatesLoad();
           const availableTemplates = getTemplates();
@@ -479,8 +485,8 @@ redisListener.subscribe(PREFIX, (err) => {
             renderType = candidateTemplate;
           }
         }
-      } else if (!req.query.template && defaultTemplate && renderType === 'digest') {
-        const candidateTemplate = `digest-${defaultTemplate}`;
+      } else if (!req.query.template && defaultTemplate && (renderType === 'digest' || renderType === 'ai')) {
+        const candidateTemplate = `${renderType}-${defaultTemplate}`;
         if (validateTemplateName(candidateTemplate)) {
           templatesLoad();
           const availableTemplates = getTemplates();
