@@ -405,15 +405,15 @@ redisListener.subscribe(PREFIX, (err) => {
   });
 
   app.get('/templates/common.css', async (req, res) => {
-    return res.type('text/css').send(await fs.promises.readFile(path.join(__dirname, 'http', 'templates', 'common.css')));
+    return staticServe(res, path.join(__dirname, 'http', 'templates', 'common.css'), req.params['*']);
   });
 
   app.get('/templates/ansiToHtml.js', async (req, res) => {
-    return res.type('text/javascript').send(await fs.promises.readFile(path.join(__dirname, 'http', 'templates', 'ansiToHtml.js')));
+    return staticServe(res, path.join(__dirname, 'http', 'templates', 'ansiToHtml.js'), req.params['*']);
   });
 
   app.get('/templates/templateSwitcher.js', async (req, res) => {
-    return res.type('text/javascript').send(await fs.promises.readFile(path.join(__dirname, 'http', 'templates', 'templateSwitcher.js')));
+    return staticServe(res, path.join(__dirname, 'http', 'templates', 'templateSwitcher.js'), req.params['*']);
   });
 
   app.get('/static/:name', async (req, res) => {

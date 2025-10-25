@@ -263,7 +263,7 @@ const _config = {
     maxTokens: 4000,
     defaultModels: [
       'google/gemini-2.5-pro',
-      'deepseek/deepseek-chat-v3-0324:free',
+      'deepseek/deepseek-chat-v3-0324',
       'qwen/qwen3-235b-a22b:free',
       'anthropic/claude-sonnet-4'
     ],
