@@ -82,52 +82,57 @@ function validateKeyComponent (keyComponent) {
   return keyComponent;
 }
 
+let cachedTemplateNames = null;
+function getAvailableTemplateNames () {
+  if (cachedTemplateNames) {
+    return cachedTemplateNames;
+  }
+
+  const templatePath = path.join(__dirname, 'http', 'templates');
+  const templateFiles = fs.readdirSync(templatePath);
+
+  cachedTemplateNames = {
+    all: new Set(),
+    baseTemplates: new Set(),
+    digestVariants: new Set(),
+    aiVariants: new Set()
+  };
+
+  templateFiles.forEach((file) => {
+    const { name } = path.parse(file);
+    cachedTemplateNames.all.add(name);
+
+    if (name.startsWith('digest-')) {
+      cachedTemplateNames.digestVariants.add(name.substring(7));
+    } else if (name.startsWith('ai-')) {
+      cachedTemplateNames.aiVariants.add(name.substring(3));
+    } else {
+      cachedTemplateNames.baseTemplates.add(name);
+    }
+  });
+
+  return cachedTemplateNames;
+}
+
 function validateTemplateName (templateName) {
   if (!templateName || typeof templateName !== 'string') {
     return false;
   }
 
-  const validBaseTemplates = new Set([
-    'digest',
-    'ai',
-    'liveLogs',
-    'editor',
-    'gpt',
-    'stats',
-    'whois',
-    'channelXforms',
-    'claude'
-  ]);
+  const templates = getAvailableTemplateNames();
 
-  const validDigestVariants = new Set([
-    'dracula',
-    'glass',
-    'minimal',
-    'modern',
-    'modern-light',
-    'neon',
-    'nord',
-    'paper',
-    'plain',
-    'retro',
-    'retro2',
-    'solarized-dark',
-    'solarized',
-    'terminal'
-  ]);
-
-  if (validBaseTemplates.has(templateName)) {
+  if (templates.baseTemplates.has(templateName)) {
     return true;
   }
 
   if (templateName.startsWith('digest-')) {
     const variant = templateName.substring(7);
-    return validDigestVariants.has(variant);
+    return templates.digestVariants.has(variant);
   }
 
   if (templateName.startsWith('ai-')) {
     const variant = templateName.substring(3);
-    return validDigestVariants.has(variant);
+    return templates.aiVariants.has(variant);
   }
 
   return false;
@@ -198,6 +203,7 @@ const linter = new ESLint({
 
 process.on('SIGUSR1', () => {
   console.log('SIGUSR1 received, reloading templates');
+  cachedTemplateNames = null;
   templatesLoad(true);
 });
 
@@ -404,6 +410,10 @@ redisListener.subscribe(PREFIX, (err) => {
 
   app.get('/templates/ansiToHtml.js', async (req, res) => {
     return res.type('text/javascript').send(await fs.promises.readFile(path.join(__dirname, 'http', 'templates', 'ansiToHtml.js')));
+  });
+
+  app.get('/templates/templateSwitcher.js', async (req, res) => {
+    return res.type('text/javascript').send(await fs.promises.readFile(path.join(__dirname, 'http', 'templates', 'templateSwitcher.js')));
   });
 
   app.get('/static/:name', async (req, res) => {
@@ -877,6 +887,16 @@ redisListener.subscribe(PREFIX, (err) => {
         }));
         connection.socket.close();
       }
+    });
+  });
+
+  app.get('/api/templates', async (req, res) => {
+    cachedTemplateNames = null;
+    const templates = getAvailableTemplateNames();
+    return res.type('application/json').send({
+      digestVariants: Array.from(templates.digestVariants).sort(),
+      aiVariants: Array.from(templates.aiVariants).sort(),
+      baseTemplates: Array.from(templates.baseTemplates).sort()
     });
   });
 
